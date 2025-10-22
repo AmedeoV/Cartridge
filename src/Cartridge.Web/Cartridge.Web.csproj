@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cartridge.Core\Cartridge.Core.csproj" />
+    <ProjectReference Include="..\Cartridge.Infrastructure\Cartridge.Infrastructure.csproj" />
+    <ProjectReference Include="..\Cartridge.Shared\Cartridge.Shared.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>79b2bc01-d122-4f63-804a-854fb35beae2</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

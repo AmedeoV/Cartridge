@@ -1,0 +1,39 @@
+@inherits LayoutComponentBase
+
+<div class="retro-header">
+    <h1 class="retro-logo">🎮 CARTRIDGE 🎮</h1>
+    <nav class="retro-nav">
+        <a href="/" class="@(IsActive("/") ? "active" : "")">🏠 HOME</a>
+        <a href="/library" class="@(IsActive("/library") ? "active" : "")">📚 LIBRARY</a>
+        <a href="/platforms" class="@(IsActivePlatforms() ? "active" : "")">🎮 PLATFORMS</a>
+        <a href="/stats" class="@(IsActive("/stats") ? "active" : "")">📊 STATS</a>
+    </nav>
+</div>
+
+<main class="main-content">
+    @Body
+</main>
+
+<footer style="text-align: center; padding: 30px 20px; color: var(--retro-text-dim); border-top: 6px solid var(--retro-border); margin-top: 40px; background: linear-gradient(180deg, var(--retro-bg) 0%, var(--retro-bg-lighter) 100%); box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.2); font-size: 9px; line-height: 1.8;">
+    <p>🎮🎮🎮 CARTRIDGE v1.0 🎮🎮🎮</p>
+    <p style="margin-top: 8px;">YOUR UNIFIED GAMING LIBRARY</p>
+    <p style="margin-top: 8px; opacity: 0.6;">� Collect them all �</p>
+</footer>
+
+@code {
+    [Inject] NavigationManager Navigation { get; set; } = default!;
+
+    private bool IsActive(string path)
+    {
+        var currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        return currentPath == path;
+    }
+
+    private bool IsActivePlatforms()
+    {
+        var currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        return currentPath == "/platforms" || 
+               currentPath == "/connect-steam" || 
+               currentPath == "/connect-gog";
+    }
+}

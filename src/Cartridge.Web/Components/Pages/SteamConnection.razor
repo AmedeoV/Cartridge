@@ -1,0 +1,211 @@
+@page "/connect-steam"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Infrastructure.Services
+@layout RetroLayout
+@inject IPlatformConnectionService ConnectionService
+@inject NavigationManager Navigation
+
+<PageTitle>Connect Steam - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-highlight); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            🎮 Connect Your Steam Account
+        </h2>
+        <p style="color: var(--retro-text); font-size: 16px; line-height: 1.7;">
+            Link your Steam library to see all your games in one place!
+        </p>
+    </div>
+
+    @if (isConnected)
+    {
+        <div class="filter-section" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+            <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 15px;">
+                Steam Account Connected!
+            </h3>
+            <p style="color: var(--retro-text-dim); margin-bottom: 20px;">
+                Steam ID: <strong style="color: var(--retro-text);">@connectedSteamId</strong>
+            </p>
+            <p style="color: var(--retro-text); margin-bottom: 30px;">
+                Your Steam games are now being synced to your library.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-retro" @onclick="ViewLibrary">
+                    📚 View My Library
+                </button>
+                <button class="btn-retro btn-retro-secondary" @onclick="Disconnect">
+                    ❌ Disconnect Steam
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="filter-section">
+            <h3 class="filter-title">How to Find Your Steam ID</h3>
+            <ol style="color: var(--retro-text); font-size: 14px; line-height: 1.8; margin-bottom: 30px;">
+                <li style="margin-bottom: 12px;">
+                    Go to <a href="https://steamid.io/" target="_blank" style="color: var(--retro-accent); text-decoration: underline;">steamid.io</a>
+                </li>
+                <li style="margin-bottom: 12px;">
+                    Enter your Steam profile URL or username
+                </li>
+                <li style="margin-bottom: 12px;">
+                    Copy your <strong style="color: var(--retro-highlight);">steamID64</strong> (17-digit number)
+                </li>
+                <li>
+                    Make sure your Steam profile is set to <strong style="color: var(--retro-highlight);">Public</strong>
+                </li>
+            </ol>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; color: var(--retro-text); font-weight: bold; margin-bottom: 10px; font-size: 14px;">
+                    Enter Your Steam ID (64-bit):
+                </label>
+                <input 
+                    type="text" 
+                    @bind="steamId" 
+                    placeholder="76561197960287930"
+                    style="width: 100%; padding: 14px; font-size: 16px; background-color: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Courier New', monospace; box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3);"
+                    @onkeypress="HandleKeyPress" />
+                @if (!string.IsNullOrEmpty(validationMessage))
+                {
+                    <div style="color: var(--retro-error); margin-top: 10px; font-size: 14px;">
+                        ⚠️ @validationMessage
+                    </div>
+                }
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn-retro" @onclick="ConnectSteam" disabled="@isConnecting">
+                    @if (isConnecting)
+                    {
+                        <span>🔄 Connecting...</span>
+                    }
+                    else
+                    {
+                        <span>🎮 Connect Steam Account</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background-color: var(--retro-bg-lighter); border: 3px solid var(--retro-border); border-radius: 0;">
+            <h4 style="color: var(--retro-accent); font-size: 16px; margin-bottom: 15px;">
+                💡 Privacy & Security
+            </h4>
+            <ul style="color: var(--retro-text-dim); font-size: 13px; line-height: 1.7; list-style: none; padding: 0;">
+                <li style="margin-bottom: 10px;">✅ Your Steam ID is stored securely</li>
+                <li style="margin-bottom: 10px;">✅ We only read your public game library</li>
+                <li style="margin-bottom: 10px;">✅ No passwords or login credentials required</li>
+                <li>✅ You can disconnect at any time</li>
+            </ul>
+        </div>
+    }
+</div>
+
+@code {
+    private string steamId = "";
+    private string validationMessage = "";
+    private bool isConnecting = false;
+    private bool isConnected = false;
+    private string connectedSteamId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckConnectionStatus();
+    }
+
+    private async Task CheckConnectionStatus()
+    {
+        try
+        {
+            if (ConnectionService != null)
+            {
+                isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.Steam);
+                if (isConnected)
+                {
+                    connectedSteamId = "Connected";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            validationMessage = $"Error checking connection status: {ex.Message}";
+        }
+    }
+
+    private async Task ConnectSteam()
+    {
+        validationMessage = "";
+
+        if (string.IsNullOrWhiteSpace(steamId))
+        {
+            validationMessage = "Please enter your Steam ID";
+            return;
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(steamId.Trim(), @"^\d{17}$"))
+        {
+            validationMessage = "Steam ID should be a 17-digit number";
+            return;
+        }
+
+        isConnecting = true;
+        StateHasChanged();
+
+        try
+        {
+            if (ConnectionService == null)
+            {
+                validationMessage = "Connection service is not available. Please refresh the page.";
+                return;
+            }
+
+            var success = await ConnectionService.ConnectPlatformAsync("demo-user", Platform.Steam, steamId.Trim());
+            
+            if (success)
+            {
+                isConnected = true;
+                connectedSteamId = steamId.Trim();
+                steamId = "";
+            }
+            else
+            {
+                validationMessage = "Failed to connect. Please check your Steam ID and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            validationMessage = $"Error: {ex.Message}";
+            System.Console.WriteLine($"Full error: {ex}");
+        }
+        finally
+        {
+            isConnecting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Disconnect()
+    {
+        await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.Steam);
+        isConnected = false;
+        connectedSteamId = "";
+    }
+
+    private void ViewLibrary()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ConnectSteam();
+        }
+    }
+}

@@ -1,0 +1,85 @@
+﻿@page "/connect-rockstar"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Infrastructure.Services
+@layout RetroLayout
+@inject IPlatformConnectionService ConnectionService
+@inject NavigationManager Navigation
+
+<PageTitle>Connect Rockstar - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-highlight); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            🏜️ Connect Your Rockstar Account
+        </h2>
+        <p style="color: var(--retro-text); font-size: 16px; line-height: 1.7;">
+            Link your Rockstar Games Launcher to see your Rockstar games in your unified library!
+        </p>
+    </div>
+
+    @if (isConnected)
+    {
+        <div class="filter-section" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+            <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 15px;">
+                Rockstar Launcher Connected!
+            </h3>
+            <p style="color: var(--retro-text-dim); margin-bottom: 20px;">
+                Your Rockstar games are now being synced to your library.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-retro" @onclick="ViewLibrary">
+                    📚 View My Library
+                </button>
+                <button class="btn-retro btn-retro-secondary" @onclick="Disconnect">
+                    ❌ Disconnect Rockstar
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="filter-section">
+            <h3 class="filter-title">How to Connect</h3>
+            <ol style="color: var(--retro-text); font-size: 14px; line-height: 1.8; margin-bottom: 30px;">
+                <li style="margin-bottom: 12px;">
+                    Ensure the Rockstar Games Launcher is installed and you are logged in on this PC.
+                </li>
+                <li style="margin-bottom: 12px;">
+                    Click the button below to scan for your Rockstar games.
+                </li>
+            </ol>
+            <button class="btn-retro" @onclick="Connect">
+                🔗 Connect Rockstar Launcher
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isConnected = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // For demo, always check for connection on load
+        isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.Rockstar);
+    }
+
+    private async Task Connect()
+    {
+        await ConnectionService.ConnectPlatformAsync("demo-user", Platform.Rockstar, null);
+        isConnected = true;
+    }
+
+    private async Task Disconnect()
+    {
+        await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.Rockstar);
+        isConnected = false;
+    }
+
+    private void ViewLibrary()
+    {
+        Navigation.NavigateTo("/library");
+    }
+}

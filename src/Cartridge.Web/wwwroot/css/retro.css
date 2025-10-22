@@ -1,0 +1,600 @@
+/* Cartridge - Pixel Art Adventure Style (Monkey Island Inspired) */
+
+:root {
+    /* Ocean Adventure / Deep Sea Treasure theme */
+    --retro-bg: #0a1628;
+    --retro-bg-lighter: #152840;
+    --retro-bg-lightest: #1e3a5f;
+    --retro-primary: #4ecdc4;
+    --retro-secondary: #45b7d1;
+    --retro-accent: #96ceb4;
+    --retro-highlight: #ffeaa7;
+    --retro-warning: #ff7675;
+    --retro-error: #d63031;
+    --retro-text: #e8f4f8;
+    --retro-text-dim: #a0c4d4;
+    --retro-border: #2d5f7f;
+    --retro-shadow: rgba(78, 205, 196, 0.4);
+    
+    /* Pixel art dithering */
+    --pixel-size: 2px;
+    --dither-opacity: 0.15;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Press Start 2P', 'Courier New', 'Consolas', monospace;
+    font-size: 14px;
+    background-color: var(--retro-bg);
+    color: var(--retro-text);
+    position: relative;
+    overflow-x: hidden;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* Pixel art dithering overlay */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.1) 2px,
+            rgba(0, 0, 0, 0.1) 4px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.1) 2px,
+            rgba(0, 0, 0, 0.1) 4px
+        );
+    pointer-events: none;
+    z-index: 9999;
+    opacity: var(--dither-opacity);
+}
+
+/* Parchment/wood texture background */
+.app-container {
+    min-height: 100vh;
+    background: 
+        linear-gradient(
+            135deg,
+            var(--retro-bg) 0%,
+            var(--retro-bg-lighter) 50%,
+            var(--retro-bg) 100%
+        );
+    background-attachment: fixed;
+}
+
+/* Pixel art chunky button styles */
+.btn-retro {
+    background-color: var(--retro-primary);
+    color: var(--retro-bg);
+    border: none;
+    padding: 12px 24px;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 
+        4px 4px 0 var(--retro-border),
+        4px 4px 0 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.1s ease;
+    image-rendering: pixelated;
+}
+
+.btn-retro::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: 4px;
+    bottom: 4px;
+    border: 3px solid var(--retro-highlight);
+    border-right: none;
+    border-bottom: none;
+    pointer-events: none;
+}
+
+.btn-retro:hover {
+    background-color: var(--retro-highlight);
+    transform: translate(2px, 2px);
+    box-shadow: 
+        2px 2px 0 var(--retro-border),
+        2px 2px 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.btn-retro:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+}
+
+.btn-retro-secondary {
+    background-color: var(--retro-secondary);
+}
+
+.btn-retro-secondary:hover {
+    background-color: var(--retro-accent);
+}
+
+/* Pixel art card styles */
+.game-card {
+    background-color: var(--retro-bg-lighter);
+    border: 4px solid var(--retro-border);
+    padding: 0;
+    margin: 15px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        inset 2px 2px 0 rgba(255, 255, 255, 0.2),
+        inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+        6px 6px 0 rgba(0, 0, 0, 0.3);
+    image-rendering: pixelated;
+}
+
+.game-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, 
+        transparent 0%, 
+        var(--retro-highlight) 50%, 
+        transparent 100%);
+    opacity: 0.3;
+}
+
+.game-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 
+        inset 2px 2px 0 rgba(255, 255, 255, 0.3),
+        inset -2px -2px 0 rgba(0, 0, 0, 0.5),
+        8px 8px 0 rgba(0, 0, 0, 0.4);
+    border-color: var(--retro-highlight);
+}
+
+.game-card-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-bottom: 4px solid var(--retro-border);
+    image-rendering: pixelated;
+    filter: contrast(1.1) saturate(1.2);
+    background: 
+        linear-gradient(135deg, 
+            var(--retro-bg-lighter) 0%, 
+            var(--retro-bg-lightest) 100%),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(78, 205, 196, 0.1) 10px,
+            rgba(78, 205, 196, 0.1) 20px
+        );
+    position: relative;
+}
+
+/* Placeholder for broken/missing images */
+.game-card-image::after {
+    content: '🎮';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.game-card-image[src=""]:after,
+.game-card-image:not([src]):after {
+    opacity: 0.3;
+}
+
+.game-card-body {
+    padding: 15px;
+    background: 
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 10px,
+            rgba(0, 0, 0, 0.03) 10px,
+            rgba(0, 0, 0, 0.03) 11px
+        );
+}
+
+.game-card-title {
+    color: var(--retro-highlight);
+    font-size: 11px;
+    font-weight: bold;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    text-shadow: 
+        2px 2px 0 var(--retro-bg),
+        3px 3px 0 rgba(0, 0, 0, 0.5);
+    line-height: 1.6;
+}
+
+.game-card-info {
+    color: var(--retro-text-dim);
+    font-size: 9px;
+    margin: 8px 0;
+    line-height: 1.6;
+}
+
+.platform-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 5px 5px 0 0;
+    background-color: var(--retro-accent);
+    color: var(--retro-bg);
+    font-size: 8px;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--retro-bg-lightest);
+}
+
+/* Pixel art header with wood panel effect */
+.retro-header {
+    background: 
+        linear-gradient(180deg, 
+            var(--retro-bg-lightest) 0%, 
+            var(--retro-bg-lighter) 50%, 
+            var(--retro-bg) 100%);
+    border-top: 6px solid var(--retro-highlight);
+    border-bottom: 6px solid var(--retro-border);
+    padding: 30px 20px 20px;
+    box-shadow: 
+        inset 0 4px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.3),
+        0 8px 0 rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.retro-header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 3px,
+            rgba(0, 0, 0, 0.05) 3px,
+            rgba(0, 0, 0, 0.05) 6px
+        );
+    pointer-events: none;
+}
+
+.retro-logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--retro-highlight);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 
+        3px 3px 0 var(--retro-bg),
+        4px 4px 0 rgba(0, 0, 0, 0.5),
+        5px 5px 8px rgba(0, 0, 0, 0.3);
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    line-height: 1.8;
+}
+
+/* Removed glow animation for pixel art style */
+
+/* Pixel art navigation with chunky buttons */
+.retro-nav {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+}
+
+.retro-nav a {
+    color: var(--retro-text);
+    text-decoration: none;
+    padding: 10px 16px;
+    background-color: var(--retro-bg-lighter);
+    border: 3px solid var(--retro-border);
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: bold;
+    box-shadow: 
+        3px 3px 0 rgba(0, 0, 0, 0.3),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.1s ease;
+}
+
+.retro-nav a:hover {
+    background-color: var(--retro-bg-lightest);
+    transform: translate(-1px, -1px);
+    box-shadow: 
+        4px 4px 0 rgba(0, 0, 0, 0.3),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.retro-nav a.active {
+    background-color: var(--retro-primary);
+    color: var(--retro-bg);
+    border-color: var(--retro-highlight);
+    box-shadow: 
+        inset 2px 2px 0 rgba(0, 0, 0, 0.2),
+        2px 2px 0 rgba(0, 0, 0, 0.3);
+    transform: translate(2px, 2px);
+}
+
+/* Grid layout */
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Pixel art stats counter with treasure chest style */
+.stat-counter {
+    display: inline-block;
+    font-size: 32px;
+    font-weight: bold;
+    color: var(--retro-highlight);
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    text-shadow: 
+        3px 3px 0 var(--retro-bg),
+        4px 4px 0 rgba(0, 0, 0, 0.5);
+    margin: 20px;
+    line-height: 1.4;
+}
+
+.stat-label {
+    display: block;
+    font-size: 10px;
+    color: var(--retro-text-dim);
+    text-transform: uppercase;
+    margin-top: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* Pixel art loading animation (compass spinning) */
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    margin: 40px auto;
+    position: relative;
+    animation: spin 2s linear infinite;
+}
+
+.loading-spinner::before {
+    content: "🧭";
+    font-size: 48px;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Enhanced pixel art border with corner decorations */
+.pixel-border {
+    position: relative;
+    padding: 20px;
+    border: 4px solid var(--retro-border);
+    background-color: var(--retro-bg-lighter);
+}
+
+.pixel-border::before,
+.pixel-border::after {
+    content: "🎮";
+    position: absolute;
+    font-size: 20px;
+    color: var(--retro-highlight);
+}
+
+.pixel-border::before {
+    top: -2px;
+    left: -2px;
+}
+
+.pixel-border::after {
+    bottom: -2px;
+    right: -2px;
+    transform: rotate(180deg);
+}
+
+/* Main content area */
+.main-content {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Pixel art filter section with treasure map style */
+.filter-section {
+    padding: 20px;
+    margin: 20px;
+    background-color: var(--retro-bg-lighter);
+    border: 4px solid var(--retro-border);
+    box-shadow: 
+        inset 2px 2px 0 rgba(255, 255, 255, 0.1),
+        inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+        6px 6px 0 rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.filter-section::before {
+    content: "�️";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    opacity: 0.3;
+}
+
+.filter-title {
+    color: var(--retro-highlight);
+    font-size: 14px;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 var(--retro-bg);
+}
+
+/* Add decorative elements */
+h2, h3 {
+    color: var(--retro-highlight);
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    text-shadow: 
+        2px 2px 0 var(--retro-bg),
+        3px 3px 0 rgba(0, 0, 0, 0.5);
+    line-height: 1.6;
+}
+
+/* Smooth scrollbar with pixel art style */
+::-webkit-scrollbar {
+    width: 16px;
+    background: var(--retro-bg-lighter);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--retro-bg);
+    border: 2px solid var(--retro-border);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--retro-primary);
+    border: 2px solid var(--retro-border);
+    box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--retro-highlight);
+}
+
+/* Selection color */
+::selection {
+    background-color: var(--retro-highlight);
+    color: var(--retro-bg);
+}
+
+/* Platform Cards */
+.platform-card {
+    background: var(--retro-bg-lighter);
+    border: 4px solid var(--retro-border);
+    border-radius: 0;
+    box-shadow: 
+        inset 0 0 0 2px var(--retro-bg),
+        6px 6px 0 var(--retro-border),
+        8px 8px 0 rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.platform-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, 
+        var(--retro-primary) 0%, 
+        var(--retro-secondary) 50%, 
+        var(--retro-primary) 100%);
+}
+
+.platform-card.connected {
+    border-color: var(--retro-primary);
+    box-shadow: 
+        inset 0 0 0 2px var(--retro-bg),
+        0 0 20px var(--retro-shadow),
+        6px 6px 0 var(--retro-primary),
+        8px 8px 0 rgba(0, 0, 0, 0.5);
+}
+
+.platform-card.connected::before {
+    background: var(--retro-primary);
+}
+
+.platform-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        inset 0 0 0 2px var(--retro-bg),
+        0 0 30px var(--retro-shadow),
+        8px 8px 0 var(--retro-border),
+        10px 10px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    body {
+        font-size: 12px;
+    }
+
+    .game-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .retro-logo {
+        font-size: 16px;
+        letter-spacing: 1px;
+    }
+    
+    .retro-nav {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .retro-nav a {
+        font-size: 9px;
+        padding: 8px 12px;
+    }
+
+    .btn-retro {
+        font-size: 10px;
+        padding: 10px 16px;
+    }
+
+    .stat-counter {
+        font-size: 24px;
+    }
+
+    .stat-label {
+        font-size: 8px;
+    }
+}

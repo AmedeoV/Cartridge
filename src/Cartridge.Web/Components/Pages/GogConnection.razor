@@ -1,0 +1,370 @@
+@page "/connect-gog"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Infrastructure.Services
+@using Cartridge.Infrastructure.Connectors
+@using Cartridge.Infrastructure.Gog
+@using Microsoft.AspNetCore.Components.Forms
+@layout RetroLayout
+@inject IPlatformConnectionService ConnectionService
+@inject NavigationManager Navigation
+@inject GogGalaxyDatabaseReader GalaxyReader
+
+<PageTitle>Connect GOG - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-highlight); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            🎮 Connect Your GOG Account
+        </h2>
+        <p style="color: var(--retro-text); font-size: 16px; line-height: 1.7;">
+            Upload your GOG Galaxy database to see all your games in one place!
+        </p>
+    </div>
+
+    @if (isConnected)
+    {
+        <div class="filter-section" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+            <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 15px;">
+                GOG Account Connected!
+            </h3>
+            <p style="color: var(--retro-text); margin-bottom: 30px;">
+                Your GOG games have been imported successfully.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-retro" @onclick="ViewLibrary">
+                    📚 View My Library
+                </button>
+                <button class="btn-retro btn-retro-secondary" @onclick="Disconnect">
+                    ❌ Disconnect GOG
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="color: var(--retro-primary); margin: 0; font-size: 14px;">
+                    ✅ @successMessage
+                </p>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div style="background: rgba(255, 0, 0, 0.1); border: 2px solid #ff0000; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="color: #ff6b6b; margin: 0; font-size: 14px;">
+                    ❌ @errorMessage
+                </p>
+            </div>
+        }
+
+        <!-- Upload GOG Galaxy Database -->
+        <div class="filter-section" style="border: 3px solid var(--retro-primary);">
+            <h3 class="filter-title">📤 Upload GOG Galaxy Database</h3>
+            <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.6;">
+                To connect your GOG library, please upload your GOG Galaxy database file.<br/>
+                The file is usually located at: <br/>
+                <code style="background: var(--retro-bg-secondary); padding: 4px 8px; border-radius: 4px; color: var(--retro-highlight); display: inline-block; margin-top: 8px;">
+                    C:\ProgramData\GOG.com\Galaxy\storage\galaxy-2.0.db
+                </code>
+            </p>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; text-transform: uppercase;">
+                    📁 Select galaxy-2.0.db file
+                </label>
+                <InputFile OnChange="HandleDatabaseFileUpload" accept=".db" 
+                    style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (!string.IsNullOrEmpty(uploadedFileName))
+                {
+                    <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <p style="color: var(--retro-primary); margin: 0; font-size: 14px;">
+                            ✅ File uploaded: <strong>@uploadedFileName</strong> (@uploadedFileSize)
+                        </p>
+                    </div>
+                    <button 
+                        class="btn-retro" 
+                        @onclick="ProcessUploadedDatabase"
+                        disabled="@isConnecting">
+                        @if (isConnecting)
+                        {
+                            <span>⏳ Processing Database...</span>
+                        }
+                        else
+                        {
+                            <span>🔄 Import Games from Database</span>
+                        }
+                    </button>
+                }
+            </div>
+            
+            <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-top: 20px;">
+                <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0; line-height: 1.6;">
+                    <strong style="color: var(--retro-primary);">💡 How to find your database:</strong><br/>
+                    1. Open File Explorer<br/>
+                    2. Copy and paste this path into the address bar: <code style="color: var(--retro-highlight);">C:\ProgramData\GOG.com\Galaxy\storage</code><br/>
+                    3. Look for the file named <code style="color: var(--retro-highlight);">galaxy-2.0.db</code><br/>
+                    4. Upload it using the file picker above
+                </p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn-retro btn-retro-secondary" @onclick="@(() => Navigation.NavigateTo("/"))">
+                ⬅️ Back to Home
+            </button>
+        </div>
+
+        <!-- Pro Tip: Cross-Platform Integration -->
+        <div class="filter-section" style="margin-top: 30px; border: 3px solid var(--retro-accent); background: linear-gradient(135deg, rgba(255, 107, 107, 0.05) 0%, rgba(78, 205, 196, 0.05) 100%);">
+            <h3 class="filter-title" style="color: var(--retro-accent);">💡 PRO TIP: Import Multiple Gaming Platforms at Once!</h3>
+            <div style="color: var(--retro-text); font-size: 14px; line-height: 1.8;">
+                <p style="margin-bottom: 15px; font-size: 15px;">
+                    <strong style="color: var(--retro-accent);">🎮 Did you know?</strong> GOG Galaxy can integrate with other gaming platforms!
+                </p>
+                <p style="margin-bottom: 15px;">
+                    If you've connected other gaming platforms in GOG Galaxy, <strong style="color: var(--retro-primary);">those games will be included</strong> when you import your GOG database. 
+                    Our app will automatically detect and filter games by their original platform!
+                </p>
+                
+                <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                    <p style="margin-bottom: 10px; color: var(--retro-primary);"><strong>✅ Currently Working Integrations:</strong></p>
+                    <ul style="margin: 0; padding-left: 20px; color: var(--retro-text);">
+                        <li style="margin-bottom: 5px;"><strong>Epic Games</strong> - Works natively</li>
+                        <li style="margin-bottom: 5px;"><strong>Xbox Live</strong> - Works natively</li>
+                        <li><strong>Ubisoft Connect</strong> - Requires workaround (see below)</li>
+                    </ul>
+                </div>
+
+                <details style="margin-bottom: 15px;">
+                    <summary style="cursor: pointer; color: var(--retro-highlight); font-weight: bold; padding: 10px; background: var(--retro-bg-secondary); border-radius: 4px;">
+                        🔧 Ubisoft Connect Workaround (Click to expand)
+                    </summary>
+                    <div style="padding: 15px; background: var(--retro-bg-secondary); margin-top: 5px; border-radius: 4px; font-size: 13px;">
+                        <p style="margin-bottom: 10px;"><strong>To fix Ubisoft Connect integration:</strong></p>
+                        <ol style="margin: 0; padding-left: 20px; line-height: 1.8;">
+                            <li>Navigate to: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; color: var(--retro-highlight); display: block; margin: 5px 0; word-break: break-all;">C:\Users\YOUR_USERNAME\AppData\Local\GOG.com\Galaxy\plugins\installed\uplay_afb5a69c-b2ee-4d58-b916-f4cd75d4999a\consts.py</code></li>
+                            <li style="margin-top: 10px;">Open <code style="color: var(--retro-highlight);">consts.py</code> in a text editor</li>
+                            <li style="margin-top: 10px;">Find and replace these lines:
+                                <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 3px; margin: 5px 0; font-family: monospace;">
+                                    <div style="color: #ff6b6b;">CLUB_APPID = "f35adcb5-1911-440c-b1c9-48fdc1701c68"</div>
+                                    <div style="color: #ff6b6b;">CLUB_GENOME_ID = "5b36b900-65d8-47f3-93c8-86bdaa48ab50"</div>
+                                </div>
+                            </li>
+                            <li style="margin-top: 10px;">Save the file and restart GOG Galaxy</li>
+                            <li style="margin-top: 10px;">Reconnect your Ubisoft Connect account in GOG Galaxy</li>
+                        </ol>
+                    </div>
+                </details>
+
+                <p style="padding-left: 20px; border-left: 3px solid var(--retro-accent); margin-bottom: 15px;">
+                    <strong>Example:</strong> Connect Epic Games in GOG Galaxy → Upload galaxy-2.0.db here → See your Epic games automatically appear in the Epic Games section!
+                </p>
+                <p style="color: var(--retro-highlight); font-size: 13px; margin: 0;">
+                    ✨ <strong>One database import = Multiple platforms connected!</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="filter-section" style="margin-top: 30px;">
+            <h3 class="filter-title">About GOG Integration</h3>
+            <div style="color: var(--retro-text); font-size: 14px; line-height: 1.8;">
+                <p style="margin-bottom: 15px;">
+                    <strong style="color: var(--retro-primary);">Why do I need to upload my database?</strong><br/>
+                    GOG doesn't provide a public Web API for third-party applications. To access your library, we read the data from your local GOG Galaxy database file.
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong style="color: var(--retro-primary);">Is this safe?</strong><br/>
+                    Yes! Your database file contains only game information (titles, playtime, etc.). It doesn't contain any passwords, payment information, or personal data.
+                </p>
+                <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0;">
+                    The database is processed on the server and automatically deleted after 5 minutes for your privacy and security.
+                </p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isConnected = false;
+    private bool isConnecting = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private string? uploadedFileName;
+    private string? uploadedFileSize;
+    private byte[]? uploadedDatabaseContent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckConnectionStatus();
+    }
+
+    private async Task CheckConnectionStatus()
+    {
+        try
+        {
+            isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.GOG);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking GOG connection status: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDatabaseFileUpload(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        successMessage = null;
+        uploadedFileName = null;
+        uploadedFileSize = null;
+        uploadedDatabaseContent = null;
+
+        try
+        {
+            var file = e.File;
+            
+            // Validate file
+            if (!file.Name.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Please select a valid .db file (galaxy-2.0.db)";
+                return;
+            }
+
+            // Check file size (max 500MB for database files)
+            const long maxFileSize = 500 * 1024 * 1024;
+            if (file.Size > maxFileSize)
+            {
+                errorMessage = $"File is too large. Maximum size is 500MB. Your file is {file.Size / 1024 / 1024}MB.";
+                return;
+            }
+
+            // Read the file content
+            using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+            uploadedDatabaseContent = memoryStream.ToArray();
+            
+            uploadedFileName = file.Name;
+            uploadedFileSize = FormatFileSize(file.Size);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading file: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+            uploadedFileName = null;
+            uploadedDatabaseContent = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ProcessUploadedDatabase()
+    {
+        if (uploadedDatabaseContent == null)
+        {
+            errorMessage = "No database file uploaded. Please select a file first.";
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isConnecting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Save the uploaded database temporarily and process it
+            var tempPath = Path.Combine(Path.GetTempPath(), $"gog-galaxy-{Guid.NewGuid()}.db");
+            await File.WriteAllBytesAsync(tempPath, uploadedDatabaseContent);
+
+            try
+            {
+                // Validate it's a proper SQLite database
+                if (!GalaxyReader.IsValidGalaxyDatabase(tempPath))
+                {
+                    errorMessage = "The uploaded file is not a valid GOG Galaxy database. Please make sure you selected the correct galaxy-2.0.db file.";
+                    return;
+                }
+
+                // Connect using the temporary database path
+                var success = await ConnectionService.ConnectPlatformAsync("demo-user", Platform.GOG, $"uploaded-db:{tempPath}");
+                
+                if (success)
+                {
+                    isConnected = true;
+                    successMessage = $"Successfully imported your GOG library! Found games in the database.";
+                }
+                else
+                {
+                    errorMessage = "Failed to import games from the database. The file may be empty or corrupted.";
+                }
+            }
+            finally
+            {
+                // Clean up temp file after a delay to allow processing
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(5));
+                    try
+                    {
+                        if (File.Exists(tempPath))
+                        {
+                            File.Delete(tempPath);
+                        }
+                    }
+                    catch { /* Ignore cleanup errors */ }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error processing database: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+        }
+        finally
+        {
+            isConnecting = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private async Task Disconnect()
+    {
+        try
+        {
+            await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.GOG);
+            isConnected = false;
+            successMessage = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error disconnecting: {ex.Message}";
+            Console.WriteLine($"Error disconnecting GOG account: {ex}");
+        }
+    }
+
+    private void ViewLibrary()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
+

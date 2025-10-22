@@ -1,0 +1,232 @@
+@page "/platforms"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@layout RetroLayout
+@using Cartridge.Core.Interfaces
+@using Cartridge.Core.Models
+@inject IGameLibraryService GameLibraryService
+@inject NavigationManager Navigation
+
+<PageTitle>CARTRIDGE - Platforms</PageTitle>
+
+<div style="padding: 40px 20px;">
+    <h2 style="color: var(--retro-primary); font-size: 32px; text-transform: uppercase; margin-bottom: 20px; text-align: center;">
+        ◄► GAMING PLATFORMS ◄►
+    </h2>
+    <p style="text-align: center; color: var(--retro-text-dim); margin-bottom: 30px;">
+        Connect your gaming platforms to aggregate your library
+    </p>
+
+    <!-- Pro Tip: GOG Galaxy Cross-Platform Integration -->
+    <div style="max-width: 900px; margin: 0 auto 40px auto; background: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(78, 205, 196, 0.1) 100%); border: 2px solid var(--retro-accent); padding: 20px; border-radius: 8px;">
+        <div style="text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">💡</div>
+            <h3 style="color: var(--retro-accent); font-size: 18px; margin-bottom: 15px; text-transform: uppercase;">Quick Tip: Connect Multiple Platforms at Once!</h3>
+            <p style="color: var(--retro-text); font-size: 14px; line-height: 1.7; margin-bottom: 10px;">
+                <strong>GOG Galaxy</strong> can integrate with Epic Games, Xbox Live, and Ubisoft Connect (with workaround). 
+                When you <a href="/connect-gog" style="color: var(--retro-primary); text-decoration: underline;">upload your GOG Galaxy database</a>, 
+                all games from your connected platforms will automatically appear here with the correct platform filters!
+            </p>
+            <p style="color: var(--retro-text-dim); font-size: 12px; margin-bottom: 10px;">
+                ✅ Epic Games • ✅ Xbox Live • 🔧 Ubisoft Connect (workaround available on GOG connection page)
+            </p>
+            <p style="color: var(--retro-highlight); font-size: 13px; margin: 0;">
+                ✨ One database import = Multiple platforms connected
+            </p>
+        </div>
+    </div>
+
+    @if (library == null)
+    {
+        <div class="loading-spinner"></div>
+    }
+    else
+    {
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; max-width: 1200px; margin: 0 auto;">
+            
+            <!-- Steam Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.Steam) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🎮</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">STEAM</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.Steam))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.Steam)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <a href="/connect-steam" class="btn-retro">⚙️ Manage</a>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 15px 0;">
+                            Not connected
+                        </div>
+                        <a href="/connect-steam" class="btn-retro btn-retro-secondary">🔗 Connect Steam</a>
+                    }
+                </div>
+            </div>
+
+            <!-- GOG Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.GOG) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🕹️</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">GOG</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.GOG))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.GOG)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <a href="/connect-gog" class="btn-retro">⚙️ Manage</a>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 15px 0;">
+                            Not connected
+                        </div>
+                        <a href="/connect-gog" class="btn-retro btn-retro-secondary">🔗 Connect GOG</a>
+                    }
+                </div>
+            </div>
+
+            <!-- Epic Games Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.EpicGames) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🎯</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">EPIC GAMES</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.EpicGames))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.EpicGames)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <a href="/connect-gog" class="btn-retro">⚙️ Manage via GOG</a>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
+                            Use GOG Galaxy integration
+                        </div>
+                        <div style="color: #FFD700; font-size: 11px; margin: 10px 0; line-height: 1.4;">
+                            💡 <span style="color: #FFD700;">Connect Epic Games through<br/>GOG Galaxy's integration</span>
+                        </div>
+                        <a href="/connect-gog" class="btn-retro btn-retro-secondary">📥 Import via GOG</a>
+                    }
+                </div>
+            </div>
+
+            <!-- Amazon Games Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.AmazonGames) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">AMAZON GAMES</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.AmazonGames))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.AmazonGames)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <button class="btn-retro" disabled style="opacity: 0.5;">⚙️ Manage</button>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
+                            Not yet supported
+                        </div>
+                        <div style="color: var(--retro-warning); font-size: 11px; margin: 10px 0; line-height: 1.4;">
+                            🚧 Integration coming soon
+                        </div>
+                        <button class="btn-retro" disabled style="opacity: 0.5;">Coming Soon</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Ubisoft Connect Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.UbisoftConnect) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🎮</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">UBISOFT CONNECT</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.UbisoftConnect))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.UbisoftConnect)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <a href="/connect-gog" class="btn-retro">⚙️ Manage via GOG</a>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
+                            Use GOG Galaxy integration
+                        </div>
+                        <div style="color: #FFD700; font-size: 11px; margin: 10px 0; line-height: 1.4;">
+                            💡 <span style="color: #FFD700;">Connect Ubisoft through<br/>GOG Galaxy's integration</span>
+                        </div>
+                        <a href="/connect-gog" class="btn-retro btn-retro-secondary">📥 Import via GOG</a>
+                    }
+                </div>
+            </div>
+
+            <!-- Rockstar Platform Card -->
+            <div class="platform-card @(library.ConnectedPlatforms.GetValueOrDefault(Platform.Rockstar) ? "connected" : "")">
+                <div style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🏜️</div>
+                    <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 10px;">ROCKSTAR</h3>
+                    
+                    @if (library.ConnectedPlatforms.GetValueOrDefault(Platform.Rockstar))
+                    {
+                        <div style="color: var(--retro-success); margin: 15px 0;">
+                            ✅ Connected
+                        </div>
+                        <div style="font-size: 36px; font-weight: bold; color: var(--retro-accent); margin: 10px 0;">
+                            @library.Games.Count(g => g.Platform == Platform.Rockstar)
+                        </div>
+                        <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
+                        <button class="btn-retro" disabled style="opacity: 0.5;">⚙️ Manage</button>
+                    }
+                    else
+                    {
+                        <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
+                            Not yet supported
+                        </div>
+                        <div style="color: var(--retro-warning); font-size: 11px; margin: 10px 0; line-height: 1.4;">
+                            🚧 Integration coming soon
+                        </div>
+                        <button class="btn-retro" disabled style="opacity: 0.5;">Coming Soon</button>
+                    }
+                </div>
+            </div>
+
+        </div>
+    }
+</div>
+
+@code {
+    private UserLibrary? library;
+
+    protected override async Task OnInitializedAsync()
+    {
+        library = await GameLibraryService.GetUserLibraryAsync("demo-user");
+    }
+}
