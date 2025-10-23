@@ -5,6 +5,7 @@ using Cartridge.Infrastructure.Services;
 using Cartridge.Infrastructure.Connectors;
 using Cartridge.Infrastructure.Configuration;
 using Cartridge.Infrastructure.Steam;
+using Cartridge.Infrastructure.GameSearch;
 using Cartridge.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -65,10 +66,20 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.Configure<SteamApiSettings>(
     builder.Configuration.GetSection(SteamApiSettings.SectionName));
 
+// Configure RAWG API settings
+builder.Services.Configure<RawgApiSettings>(
+    builder.Configuration.GetSection("RawgApi"));
+
 // Register HTTP clients
 builder.Services.AddHttpClient<SteamApiClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.steampowered.com");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient<RawgApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.rawg.io");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
@@ -82,6 +93,9 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(sp.GetRe
 
 // Register Steam API client
 builder.Services.AddScoped<SteamApiClient>();
+
+// Register RAWG API client
+builder.Services.AddScoped<RawgApiClient>();
 
 // Register GOG services
 builder.Services.AddScoped<Cartridge.Infrastructure.Gog.GogGalaxyDatabaseReader>();

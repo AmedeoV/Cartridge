@@ -18,16 +18,21 @@
         <h2 style="color: var(--retro-primary); font-size: 28px; text-transform: uppercase; text-align: center; flex: 1;">
             ◄► YOUR GAME LIBRARY ◄►
         </h2>
-        <button class="btn-retro" @onclick="SyncLibrary" disabled="@isSyncing">
-            @if (isSyncing)
-            {
-                <span>⟳ Syncing...</span>
-            }
-            else
-            {
-                <span>🔄 Sync Library</span>
-            }
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-retro" @onclick="OpenAddGameModal">
+                ➕ Add Game
+            </button>
+            <button class="btn-retro" @onclick="SyncLibrary" disabled="@isSyncing">
+                @if (isSyncing)
+                {
+                    <span>⟳ Syncing...</span>
+                }
+                else
+                {
+                    <span>🔄 Sync Library</span>
+                }
+            </button>
+        </div>
     </div>
 
     @if (library == null)
@@ -286,6 +291,226 @@
             </div>
         </div>
     }
+
+    @* Add Game Modal *@
+    @if (showAddGameModal)
+    {
+        <div class="modal-overlay" @onclick="CloseAddGameModal">
+            <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h3>➕ Add Game to Library</h3>
+                    <button class="modal-close" @onclick="CloseAddGameModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom: 20px;">
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none;">🔍</span>
+                            <input type="text" 
+                                   class="search-input" 
+                                   placeholder="Search for games (e.g., Elden Ring, Hades, Cyberpunk)..."
+                                   @bind="gameSearchQuery"
+                                   @bind:event="oninput"
+                                   @onkeyup="HandleSearchKeyPress"
+                                   style="width: 100%; padding: 15px 45px 15px 45px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 16px; border-radius: 4px;" />
+                            @if (isSearching)
+                            {
+                                <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 18px;">⟳</span>
+                            }
+                        </div>
+                        <button class="btn-retro" @onclick="SearchGames" disabled="@isSearching" style="margin-top: 10px; width: 100%;">
+                            @if (isSearching)
+                            {
+                                <span>🔍 Searching...</span>
+                            }
+                            else
+                            {
+                                <span>🔍 Search Games</span>
+                            }
+                        </button>
+                    </div>
+
+                    @if (searchResults != null && searchResults.Any())
+                    {
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: var(--retro-accent); margin-bottom: 15px;">Search Results (@searchResults.Count found)</h4>
+                            <div class="game-grid" style="max-height: 500px; overflow-y: auto;">
+                                @foreach (var game in searchResults)
+                                {
+                                    <div class="game-card" style="cursor: pointer; position: relative;" @onclick="() => SelectGameToAdd(game)">
+                                        @if (!string.IsNullOrEmpty(game.CoverImageUrl))
+                                        {
+                                            <img src="@game.CoverImageUrl" 
+                                                 alt="@game.Title" 
+                                                 class="game-card-image"
+                                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                            <div class="image-placeholder" style="display: none; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
+                                                🎮
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="image-placeholder" style="display: flex; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
+                                                🎮
+                                            </div>
+                                        }
+                                        <div class="game-card-body">
+                                            <h4 class="game-card-title">@game.Title</h4>
+                                            
+                                            @if (!string.IsNullOrEmpty(game.Publisher))
+                                            {
+                                                <div class="game-card-info">
+                                                    <span style="color: var(--retro-text-dim);">📦</span> @game.Publisher
+                                                </div>
+                                            }
+
+                                            @if (game.ReleaseDate.HasValue)
+                                            {
+                                                <div class="game-card-info">
+                                                    <span style="color: var(--retro-text-dim);">📅</span> @game.ReleaseDate.Value.ToString("MMM dd, yyyy")
+                                                </div>
+                                            }
+
+                                            @if (game.Genres.Any())
+                                            {
+                                                <div style="margin-top: 8px;">
+                                                    @foreach (var genre in game.Genres.Take(3))
+                                                    {
+                                                        <span style="display: inline-block; padding: 2px 6px; margin: 2px; border: 1px solid var(--retro-text-dim); color: var(--retro-text-dim); font-size: 10px;">
+                                                            @genre
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <div style="position: absolute; top: 10px; right: 10px; background-color: var(--retro-accent); color: white; padding: 5px 10px; border-radius: 4px; font-weight: bold;">
+                                            ✓ Select
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else if (searchResults != null && !searchResults.Any() && !isSearching)
+                    {
+                        <div style="text-align: center; padding: 40px; color: var(--retro-text-dim);">
+                            <p style="font-size: 18px;">No games found</p>
+                            <p>Try a different search term</p>
+                        </div>
+                    }
+                    else if (searchResults == null && !isSearching)
+                    {
+                        <div style="text-align: center; padding: 40px; color: var(--retro-text-dim);">
+                            <p style="font-size: 18px;">🎮 Search for games to add to your library</p>
+                            <p>Type a game name and click Search</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Add Game Confirmation Modal *@
+    @if (selectedGameToAdd != null)
+    {
+        <div class="modal-overlay" @onclick="CancelAddGame">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>Add "@selectedGameToAdd.Title" to Library</h3>
+                    <button class="modal-close" @onclick="CancelAddGame">✕</button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(selectedGameToAdd.CoverImageUrl))
+                    {
+                        <img src="@selectedGameToAdd.CoverImageUrl" alt="@selectedGameToAdd.Title" style="max-width: 300px; max-height: 400px; margin: 0 auto 20px; display: block; border: 4px solid var(--retro-border);" />
+                    }
+                    
+                    <div style="margin: 20px 0;">
+                        <label style="display: block; margin-bottom: 10px; color: var(--retro-accent); font-weight: bold;">
+                            Select Platform *
+                        </label>
+                        <select @bind="selectedPlatformForNewGame" 
+                                style="width: 100%; padding: 12px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 16px; border-radius: 4px;">
+                            <option value="">-- Select a Platform --</option>
+                            @foreach (Platform platform in Enum.GetValues(typeof(Platform)))
+                            {
+                                <option value="@platform">@platform</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(selectedGameToAdd.Description))
+                    {
+                        <div style="margin: 20px 0; padding: 15px; background-color: rgba(0, 0, 0, 0.3); border-left: 4px solid var(--retro-accent); line-height: 1.6; max-height: 200px; overflow-y: auto;">
+                            <strong style="color: var(--retro-accent);">Description:</strong><br/>
+                            @selectedGameToAdd.Description
+                        </div>
+                    }
+
+                    <div class="game-details-grid" style="margin: 20px 0;">
+                        @if (!string.IsNullOrEmpty(selectedGameToAdd.Developer))
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">👨‍💻 Developer:</strong><br/>
+                                @selectedGameToAdd.Developer
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(selectedGameToAdd.Publisher))
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">📦 Publisher:</strong><br/>
+                                @selectedGameToAdd.Publisher
+                            </div>
+                        }
+
+                        @if (selectedGameToAdd.ReleaseDate.HasValue)
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">📅 Release Date:</strong><br/>
+                                @selectedGameToAdd.ReleaseDate.Value.ToString("MMMM dd, yyyy")
+                            </div>
+                        }
+                    </div>
+
+                    @if (selectedGameToAdd.Genres.Any())
+                    {
+                        <div style="margin: 15px 0;">
+                            <strong style="color: var(--retro-text-dim);">🎯 Genres:</strong><br/>
+                            @foreach (var genre in selectedGameToAdd.Genres)
+                            {
+                                <span style="display: inline-block; padding: 4px 8px; margin: 2px; border: 1px solid var(--retro-text-dim); color: var(--retro-text-dim); font-size: 11px;">
+                                    @genre
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn-retro" @onclick="ConfirmAddGame" disabled="@isAddingGame" style="flex: 1; background-color: var(--retro-accent);">
+                            @if (isAddingGame)
+                            {
+                                <span>⟳ Adding...</span>
+                            }
+                            else
+                            {
+                                <span>✓ Add to Library</span>
+                            }
+                        </button>
+                        <button class="btn-retro" @onclick="CancelAddGame" disabled="@isAddingGame" style="flex: 1;">
+                            Cancel
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(addGameError))
+                    {
+                        <div style="margin-top: 15px; padding: 10px; background-color: rgba(220, 38, 38, 0.2); border: 2px solid var(--retro-warning); color: var(--retro-warning); border-radius: 4px;">
+                            ⚠ @addGameError
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -298,6 +523,16 @@
     private SortOption sortOption = SortOption.LastPlayed; // Default to last played
     private string searchQuery = string.Empty;
     private bool showFilters = false;
+
+    // Add game modal state
+    private bool showAddGameModal = false;
+    private bool isSearching = false;
+    private bool isAddingGame = false;
+    private string gameSearchQuery = string.Empty;
+    private List<Game>? searchResults = null;
+    private Game? selectedGameToAdd = null;
+    private string selectedPlatformForNewGame = string.Empty;
+    private string addGameError = string.Empty;
 
     private enum SortOption
     {
@@ -446,5 +681,116 @@
         if (days < 7) return $"{days} days ago";
         if (days < 30) return $"{days / 7} weeks ago";
         return lastPlayed.ToString("MMM dd, yyyy");
+    }
+
+    // Add game modal methods
+    private void OpenAddGameModal()
+    {
+        showAddGameModal = true;
+        searchResults = null;
+        gameSearchQuery = string.Empty;
+        StateHasChanged();
+    }
+
+    private void CloseAddGameModal()
+    {
+        showAddGameModal = false;
+        searchResults = null;
+        gameSearchQuery = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task HandleSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(gameSearchQuery))
+        {
+            await SearchGames();
+        }
+    }
+
+    private async Task SearchGames()
+    {
+        if (string.IsNullOrWhiteSpace(gameSearchQuery) || isSearching)
+            return;
+
+        isSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            searchResults = await GameLibraryService.SearchGamesAsync(gameSearchQuery);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching games: {ex.Message}");
+            searchResults = new List<Game>();
+        }
+        finally
+        {
+            isSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectGameToAdd(Game game)
+    {
+        selectedGameToAdd = game;
+        selectedPlatformForNewGame = string.Empty;
+        addGameError = string.Empty;
+        StateHasChanged();
+    }
+
+    private void CancelAddGame()
+    {
+        selectedGameToAdd = null;
+        selectedPlatformForNewGame = string.Empty;
+        addGameError = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmAddGame()
+    {
+        if (selectedGameToAdd == null || string.IsNullOrEmpty(currentUserId))
+            return;
+
+        if (string.IsNullOrEmpty(selectedPlatformForNewGame))
+        {
+            addGameError = "Please select a platform";
+            StateHasChanged();
+            return;
+        }
+
+        isAddingGame = true;
+        addGameError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            // Set the platform for the game
+            selectedGameToAdd.Platform = Enum.Parse<Platform>(selectedPlatformForNewGame);
+
+            // Add the game to the library
+            await GameLibraryService.AddManualGameAsync(currentUserId, selectedGameToAdd);
+
+            // Refresh the library
+            library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
+            ApplyFilters();
+
+            // Close modals
+            selectedGameToAdd = null;
+            showAddGameModal = false;
+            searchResults = null;
+            gameSearchQuery = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            addGameError = $"Failed to add game: {ex.Message}";
+            Console.WriteLine($"Error adding game: {ex.Message}");
+        }
+        finally
+        {
+            isAddingGame = false;
+            StateHasChanged();
+        }
     }
 }

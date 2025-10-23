@@ -1,6 +1,7 @@
 using Cartridge.Core.Interfaces;
 using Cartridge.Core.Models;
 using Cartridge.Infrastructure.Data;
+using Cartridge.Infrastructure.GameSearch;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cartridge.Infrastructure.Services;
@@ -12,13 +13,16 @@ public class GameLibraryService : IGameLibraryService
 {
     private readonly IEnumerable<IPlatformConnector> _platformConnectors;
     private readonly ApplicationDbContext _context;
+    private readonly RawgApiClient _rawgApiClient;
 
     public GameLibraryService(
         IEnumerable<IPlatformConnector> platformConnectors,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        RawgApiClient rawgApiClient)
     {
         _platformConnectors = platformConnectors;
         _context = context;
+        _rawgApiClient = rawgApiClient;
     }
 
     public async Task<UserLibrary> GetUserLibraryAsync(string userId)
@@ -193,5 +197,80 @@ public class GameLibraryService : IGameLibraryService
         }
         
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<Game> AddManualGameAsync(string userId, Game game)
+    {
+        // Check if game already exists
+        var existing = await _context.UserGames
+            .FirstOrDefaultAsync(g => g.UserId == userId && 
+                                    g.Title == game.Title && 
+                                    g.Platform == game.Platform);
+
+        if (existing != null)
+        {
+            // Return the existing game
+            return new Game
+            {
+                Id = existing.Id,
+                Title = existing.Title,
+                Platform = existing.Platform,
+                CoverImageUrl = existing.CoverImageUrl,
+                PlaytimeMinutes = existing.PlaytimeMinutes,
+                LastPlayed = existing.LastPlayed,
+                AddedToLibrary = existing.AddedAt,
+                Description = existing.Description,
+                ReleaseDate = existing.ReleaseDate,
+                Developer = existing.Developer,
+                Publisher = existing.Publisher,
+                Genres = string.IsNullOrEmpty(existing.Genres) 
+                    ? new List<string>() 
+                    : existing.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
+            };
+        }
+
+        var userGame = new UserGame
+        {
+            UserId = userId,
+            Title = game.Title,
+            Platform = game.Platform,
+            ExternalId = game.Id != Guid.NewGuid().ToString() ? game.Id : null,
+            CoverImageUrl = game.CoverImageUrl,
+            PlaytimeMinutes = game.PlaytimeMinutes,
+            LastPlayed = game.LastPlayed,
+            IsManuallyAdded = true,
+            AddedAt = DateTime.UtcNow,
+            Description = game.Description,
+            ReleaseDate = game.ReleaseDate,
+            Developer = game.Developer,
+            Publisher = game.Publisher,
+            Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null
+        };
+
+        _context.UserGames.Add(userGame);
+        await _context.SaveChangesAsync();
+
+        return new Game
+        {
+            Id = userGame.Id,
+            Title = userGame.Title,
+            Platform = userGame.Platform,
+            CoverImageUrl = userGame.CoverImageUrl,
+            PlaytimeMinutes = userGame.PlaytimeMinutes,
+            LastPlayed = userGame.LastPlayed,
+            AddedToLibrary = userGame.AddedAt,
+            Description = userGame.Description,
+            ReleaseDate = userGame.ReleaseDate,
+            Developer = userGame.Developer,
+            Publisher = userGame.Publisher,
+            Genres = string.IsNullOrEmpty(userGame.Genres) 
+                ? new List<string>() 
+                : userGame.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
+        };
+    }
+
+    public async Task<List<Game>> SearchGamesAsync(string searchQuery)
+    {
+        return await _rawgApiClient.SearchGamesAsync(searchQuery);
     }
 }

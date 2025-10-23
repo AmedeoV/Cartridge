@@ -10,5 +10,6 @@ public enum Platform
     GOG,
     AmazonGames,
     UbisoftConnect,
-    Rockstar
+    Rockstar,
+    Other
 }

@@ -11,4 +11,6 @@ public interface IGameLibraryService
     Task<List<Game>> GetGamesByPlatformAsync(string userId, Platform platform);
     Task<Game?> GetGameByIdAsync(string gameId);
     Task SyncLibraryAsync(string userId);
+    Task<Game> AddManualGameAsync(string userId, Game game);
+    Task<List<Game>> SearchGamesAsync(string searchQuery);
 }
