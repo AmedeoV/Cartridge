@@ -100,6 +100,10 @@ builder.Services.AddScoped<RawgApiClient>();
 // Register GOG services
 builder.Services.AddScoped<Cartridge.Infrastructure.Gog.GogGalaxyDatabaseReader>();
 
+// Register Amazon Games services
+builder.Services.AddScoped<Cartridge.Infrastructure.AmazonGames.AmazonGamesDatabaseReader>();
+builder.Services.AddScoped<Cartridge.Infrastructure.AmazonGames.AmazonGamesManualImportService>();
+
 // Register authentication service
 builder.Services.AddScoped<IAuthService, AuthService>();
 

@@ -148,17 +148,14 @@
                             @library.Games.Count(g => g.Platform == Platform.AmazonGames)
                         </div>
                         <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
-                        <button class="btn-retro" disabled style="opacity: 0.5;">⚙️ Manage</button>
+                        <a href="/connect-amazon" class="btn-retro">⚙️ Manage</a>
                     }
                     else
                     {
-                        <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
-                            Not yet supported
+                        <div style="color: var(--retro-text-dim); margin: 15px 0;">
+                            Not connected
                         </div>
-                        <div style="color: var(--retro-warning); font-size: 11px; margin: 10px 0; line-height: 1.4;">
-                            🚧 Integration coming soon
-                        </div>
-                        <button class="btn-retro" disabled style="opacity: 0.5;">Coming Soon</button>
+                        <a href="/connect-amazon" class="btn-retro btn-retro-secondary">🔗 Connect Amazon Games</a>
                     }
                 </div>
             </div>

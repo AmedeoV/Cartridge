@@ -1,0 +1,495 @@
+@page "/connect-amazon"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Infrastructure.Services
+@using Cartridge.Infrastructure.Connectors
+@using Cartridge.Infrastructure.AmazonGames
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@layout RetroLayout
+@attribute [Authorize]
+@inject IPlatformConnectionService ConnectionService
+@inject NavigationManager Navigation
+@inject AmazonGamesDatabaseReader DatabaseReader
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Connect Amazon Games - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-highlight); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            🎮 Connect Your Amazon Games
+        </h2>
+        <p style="color: var(--retro-text); font-size: 16px; line-height: 1.7;">
+            Upload your Amazon Games database to see all your games in one place!
+        </p>
+    </div>
+
+    @if (isConnected)
+    {
+        <div class="filter-section" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+            <h3 style="color: var(--retro-primary); font-size: 24px; margin-bottom: 15px;">
+                Amazon Games Connected!
+            </h3>
+            <p style="color: var(--retro-text); margin-bottom: 30px;">
+                Your Amazon Games have been imported successfully.
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-retro" @onclick="ViewLibrary">
+                    📚 View My Library
+                </button>
+                <button class="btn-retro btn-retro-secondary" @onclick="Disconnect">
+                    ❌ Disconnect Amazon Games
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="color: var(--retro-primary); margin: 0; font-size: 14px;">
+                    ✅ @successMessage
+                </p>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div style="background: rgba(255, 0, 0, 0.1); border: 2px solid #ff0000; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="color: #ff6b6b; margin: 0; font-size: 14px;">
+                    ❌ @errorMessage
+                </p>
+            </div>
+        }
+
+        <!-- Upload Amazon Games Database -->
+        <div class="filter-section" style="border: 3px solid var(--retro-primary);">
+            <h3 class="filter-title">📤 Upload Amazon Games Databases</h3>
+            <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.6;">
+                To connect your Amazon Games library, please upload <strong>BOTH</strong> database files for a complete list:<br/>
+                <code style="background: var(--retro-bg-secondary); padding: 4px 8px; border-radius: 4px; color: var(--retro-highlight); display: inline-block; margin-top: 8px;">
+                    1️⃣ ProductDetails.sqlite (Primary - Full game metadata)
+                </code><br/>
+                <code style="background: var(--retro-bg-secondary); padding: 4px 8px; border-radius: 4px; color: var(--retro-highlight); display: inline-block; margin-top: 4px;">
+                    2️⃣ GameProductInfo.sqlite (Additional games)
+                </code>
+            </p>
+            
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn-retro" style="font-size: 12px; padding: 8px 12px;" @onclick="OpenDatabaseFolder">
+                        📂 Open Database Folder
+                    </button>
+                    <button class="btn-retro btn-retro-secondary" style="font-size: 12px; padding: 8px 12px;" @onclick="CopyPathToClipboard">
+                        📋 Copy Path
+                    </button>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(copyMessage))
+                {
+                    <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 8px; margin-bottom: 10px; border-radius: 4px;">
+                        <p style="color: var(--retro-primary); margin: 0; font-size: 12px;">
+                            ✓ @copyMessage
+                        </p>
+                    </div>
+                }
+                
+                <!-- ProductDetails Upload -->
+                <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; margin-top: 20px; text-transform: uppercase;">
+                    📁 1. Upload ProductDetails.sqlite
+                </label>
+                <InputFile OnChange="HandleProductDetailsUpload" accept=".sqlite,.db" 
+                    style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (!string.IsNullOrEmpty(productDetailsFileName))
+                {
+                    <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <p style="color: var(--retro-primary); margin: 0; font-size: 14px;">
+                            ✅ ProductDetails uploaded: <strong>@productDetailsFileName</strong> (@productDetailsFileSize)
+                        </p>
+                    </div>
+                }
+                
+                <!-- GameProductInfo Upload -->
+                <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; margin-top: 20px; text-transform: uppercase;">
+                    📁 2. Upload GameProductInfo.sqlite
+                </label>
+                <InputFile OnChange="HandleProductInfoUpload" accept=".sqlite,.db" 
+                    style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (!string.IsNullOrEmpty(productInfoFileName))
+                {
+                    <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <p style="color: var(--retro-primary); margin: 0; font-size: 14px;">
+                            ✅ GameProductInfo uploaded: <strong>@productInfoFileName</strong> (@productInfoFileSize)
+                        </p>
+                    </div>
+                }
+                
+                @if (!string.IsNullOrEmpty(productDetailsFileName) && !string.IsNullOrEmpty(productInfoFileName))
+                {
+                    <button 
+                        class="btn-retro" 
+                        @onclick="ProcessUploadedDatabases"
+                        disabled="@isConnecting"
+                        style="width: 100%; margin-top: 10px;">
+                        @if (isConnecting)
+                        {
+                            <span>⏳ Processing Databases...</span>
+                        }
+                        else
+                        {
+                            <span>🔄 Import All Games from Both Databases</span>
+                        }
+                    </button>
+                }
+            </div>
+            
+            <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-top: 20px;">
+                <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0; line-height: 1.6;">
+                    <strong style="color: var(--retro-primary);">💡 How to find your databases:</strong><br/>
+                    1. Click the <strong>"📂 Open Database Folder"</strong> button above, or:<br/>
+                    2. Open File Explorer and press <kbd style="background: var(--retro-bg); padding: 2px 6px; border-radius: 3px;">Win + R</kbd><br/>
+                    3. Type: <code style="color: var(--retro-highlight);">%LOCALAPPDATA%\Amazon Games\Data\Games\Sql</code> and press Enter<br/>
+                    4. Upload <strong>BOTH</strong> files: <code style="color: var(--retro-highlight);">ProductDetails.sqlite</code> AND <code style="color: var(--retro-highlight);">GameProductInfo.sqlite</code><br/><br/>
+                    <strong style="color: var(--retro-accent);">⚠️ Important:</strong> Both databases are required for a complete game library. ProductDetails contains some games, GameProductInfo contains others!
+                </p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn-retro btn-retro-secondary" @onclick="@(() => Navigation.NavigateTo("/"))">
+                ⬅️ Back to Home
+            </button>
+        </div>
+
+        <!-- Info Section -->
+        <div class="filter-section" style="margin-top: 30px; border: 3px solid var(--retro-accent);">
+            <h3 class="filter-title" style="color: var(--retro-accent);">🔒 Your Privacy Matters</h3>
+            <div style="color: var(--retro-text); font-size: 14px; line-height: 1.8;">
+                <p style="margin-bottom: 15px;">
+                    <strong style="color: var(--retro-primary);">How does this work?</strong>
+                </p>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li style="margin-bottom: 10px;">Amazon Games stores your game library in a local SQLite database</li>
+                    <li style="margin-bottom: 10px;">We read this database to import your games</li>
+                    <li style="margin-bottom: 10px;">Your database is processed temporarily and then deleted</li>
+                    <li>We only store your game titles and basic information</li>
+                </ul>
+                <p style="margin-top: 15px; font-size: 13px; color: var(--retro-text-dim);">
+                    <strong>Note:</strong> Amazon doesn't provide a public Web API for third-party applications. 
+                    To access your library, we read the data from your local Amazon Games database file.
+                </p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isConnected = false;
+    private bool isConnecting = false;
+    private string? errorMessage = null;
+    private string? successMessage = null;
+    private string? currentUserId = null;
+    private string? copyMessage = null;
+    
+    // ProductDetails file upload state
+    private byte[]? productDetailsContent = null;
+    private string? productDetailsFileName = null;
+    private string? productDetailsFileSize = null;
+    
+    // GameProductInfo file upload state
+    private byte[]? productInfoContent = null;
+    private string? productInfoFileName = null;
+    private string? productInfoFileSize = null;
+    
+    private const string DatabaseFolderPath = @"%LOCALAPPDATA%\Amazon Games\Data\Games\Sql";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                isConnected = await ConnectionService.IsPlatformConnectedAsync(currentUserId, Platform.AmazonGames);
+            }
+        }
+    }
+
+    private async Task HandleProductDetailsUpload(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        successMessage = null;
+        productDetailsFileName = null;
+        productDetailsContent = null;
+        
+        try
+        {
+            var file = e.File;
+            
+            // Validate file
+            if (!file.Name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) && 
+                !file.Name.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Please select a valid .sqlite or .db file";
+                return;
+            }
+
+            // Check file size (max 100MB for Amazon Games database)
+            const long maxFileSize = 100 * 1024 * 1024;
+            if (file.Size > maxFileSize)
+            {
+                errorMessage = $"File is too large. Maximum size is 100MB. Your file is {file.Size / 1024 / 1024}MB.";
+                return;
+            }
+
+            // Read the file content
+            using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+            productDetailsContent = memoryStream.ToArray();
+            
+            productDetailsFileName = file.Name;
+            productDetailsFileSize = FormatFileSize(file.Size);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading ProductDetails: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+            productDetailsFileName = null;
+            productDetailsContent = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleProductInfoUpload(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        successMessage = null;
+        productInfoFileName = null;
+        productInfoContent = null;
+        
+        try
+        {
+            var file = e.File;
+            
+            // Validate file
+            if (!file.Name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) && 
+                !file.Name.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Please select a valid .sqlite or .db file";
+                return;
+            }
+
+            // Check file size (max 100MB for Amazon Games database)
+            const long maxFileSize = 100 * 1024 * 1024;
+            if (file.Size > maxFileSize)
+            {
+                errorMessage = $"File is too large. Maximum size is 100MB. Your file is {file.Size / 1024 / 1024}MB.";
+                return;
+            }
+
+            // Read the file content
+            using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
+            productInfoContent = memoryStream.ToArray();
+            
+            productInfoFileName = file.Name;
+            productInfoFileSize = FormatFileSize(file.Size);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading GameProductInfo: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+            productInfoFileName = null;
+            productInfoContent = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ProcessUploadedDatabases()
+    {
+        if (productDetailsContent == null || productInfoContent == null)
+        {
+            errorMessage = "Please upload BOTH database files before importing.";
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isConnecting = true;
+        StateHasChanged();
+
+        try
+        {
+            // Create a temporary folder to store both databases
+            var tempFolder = Path.Combine(Path.GetTempPath(), $"amazon-games-{Guid.NewGuid()}");
+            Directory.CreateDirectory(tempFolder);
+
+            var productDetailsPath = Path.Combine(tempFolder, "ProductDetails.sqlite");
+            var productInfoPath = Path.Combine(tempFolder, "GameProductInfo.sqlite");
+
+            // Save both databases to temp folder
+            await File.WriteAllBytesAsync(productDetailsPath, productDetailsContent);
+            await File.WriteAllBytesAsync(productInfoPath, productInfoContent);
+
+            try
+            {
+                // Validate both databases
+                if (!DatabaseReader.IsValidAmazonGamesDatabase(productDetailsPath))
+                {
+                    errorMessage = "ProductDetails.sqlite is not a valid Amazon Games database.";
+                    return;
+                }
+
+                if (!DatabaseReader.IsValidAmazonGamesDatabase(productInfoPath))
+                {
+                    errorMessage = "GameProductInfo.sqlite is not a valid Amazon Games database.";
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(currentUserId))
+                {
+                    errorMessage = "User not authenticated. Please sign in again.";
+                    return;
+                }
+
+                // Connect using either database path (the reader will find both in the same folder)
+                var success = await ConnectionService.ConnectPlatformAsync(currentUserId, Platform.AmazonGames, $"uploaded-db:{productDetailsPath}");
+                
+                if (success)
+                {
+                    isConnected = true;
+                    successMessage = "Successfully imported your Amazon Games library from both databases!";
+                }
+                else
+                {
+                    errorMessage = "Failed to import games from the databases. The files may be empty or corrupted.";
+                }
+            }
+            finally
+            {
+                // Clean up temp folder after a delay to allow processing
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(5));
+                    try
+                    {
+                        if (Directory.Exists(tempFolder))
+                        {
+                            Directory.Delete(tempFolder, true);
+                        }
+                    }
+                    catch { /* Ignore cleanup errors */ }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error processing databases: {ex.Message}";
+            Console.WriteLine($"Error: {ex}");
+        }
+        finally
+        {
+            isConnecting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewLibrary()
+    {
+        Navigation.NavigateTo("/library");
+    }
+
+    private async Task Disconnect()
+    {
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+
+        try
+        {
+            await ConnectionService.DisconnectPlatformAsync(currentUserId, Platform.AmazonGames);
+            isConnected = false;
+            productDetailsFileName = null;
+            productDetailsContent = null;
+            productInfoFileName = null;
+            productInfoContent = null;
+            successMessage = "Amazon Games disconnected successfully.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error disconnecting: {ex.Message}";
+        }
+        
+        StateHasChanged();
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private void OpenDatabaseFolder()
+    {
+        try
+        {
+            var expandedPath = Environment.ExpandEnvironmentVariables(DatabaseFolderPath);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = expandedPath,
+                UseShellExecute = true
+            });
+            copyMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Could not open folder: {ex.Message}";
+        }
+    }
+
+    private async Task CopyPathToClipboard()
+    {
+        try
+        {
+            var expandedPath = Environment.ExpandEnvironmentVariables(DatabaseFolderPath);
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", expandedPath);
+            copyMessage = "Path copied to clipboard!";
+            errorMessage = null;
+            
+            // Clear the message after 3 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                copyMessage = null;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Could not copy to clipboard: {ex.Message}";
+        }
+    }
+}
