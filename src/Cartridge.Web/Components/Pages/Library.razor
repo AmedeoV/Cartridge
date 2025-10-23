@@ -4,14 +4,31 @@
 @layout RetroLayout
 @using Cartridge.Core.Interfaces
 @using Cartridge.Core.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@attribute [Authorize]
 @inject IGameLibraryService GameLibraryService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>CARTRIDGE - My Library</PageTitle>
 
 <div style="padding: 20px;">
-    <h2 style="color: var(--retro-primary); font-size: 28px; text-transform: uppercase; margin-bottom: 30px; text-align: center;">
-        ◄► YOUR GAME LIBRARY ◄►
-    </h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2 style="color: var(--retro-primary); font-size: 28px; text-transform: uppercase; text-align: center; flex: 1;">
+            ◄► YOUR GAME LIBRARY ◄►
+        </h2>
+        <button class="btn-retro" @onclick="SyncLibrary" disabled="@isSyncing">
+            @if (isSyncing)
+            {
+                <span>⟳ Syncing...</span>
+            }
+            else
+            {
+                <span>🔄 Sync Library</span>
+            }
+        </button>
+    </div>
 
     @if (library == null)
     {
@@ -39,30 +56,19 @@
 
         <div style="text-align: center; margin: 20px 0; color: var(--retro-text-dim);">
             Showing @filteredGames.Count of @library.Games.Count games
-            @if (selectedPlatform == Platform.EpicGames || selectedPlatform == Platform.AmazonGames || 
-                (selectedPlatform == null && (library.ConnectedPlatforms.GetValueOrDefault(Platform.EpicGames) || library.ConnectedPlatforms.GetValueOrDefault(Platform.AmazonGames))))
+            @if (library.Games.Any(g => g.PlaytimeMinutes.HasValue && g.PlaytimeMinutes > 0))
             {
-                <div style="color: var(--retro-warning); font-size: 10px; margin-top: 8px;">
-                    @if (selectedPlatform == Platform.EpicGames)
-                    {
-                        <text>ⓘ Epic Games shows installed games only</text>
-                    }
-                    else if (selectedPlatform == Platform.AmazonGames)
-                    {
-                        <text>ⓘ Amazon Games shows installed/previously installed games</text>
-                    }
-                    else
-                    {
-                        <text>ⓘ Epic and Amazon show limited libraries (not all owned games)</text>
-                    }
-                </div>
+                var totalHours = library.Games.Where(g => g.PlaytimeMinutes.HasValue).Sum(g => g.PlaytimeMinutes!.Value) / 60.0;
+                <span style="margin-left: 20px; color: var(--retro-accent);">
+                    ⏱ Total playtime: @totalHours.ToString("F1") hours
+                </span>
             }
         </div>
 
         <div class="game-grid">
             @foreach (var game in filteredGames.OrderBy(g => g.Title))
             {
-                <div class="game-card">
+                <div class="game-card" @onclick="() => ShowGameDetails(game)" style="cursor: pointer;">
                     @if (!string.IsNullOrEmpty(game.CoverImageUrl))
                     {
                         <img src="@game.CoverImageUrl" 
@@ -89,35 +95,42 @@
                         @if (!string.IsNullOrEmpty(game.Developer))
                         {
                             <div class="game-card-info">
-                                Dev: @game.Developer
+                                <span style="color: var(--retro-text-dim);">👨‍💻 Dev:</span> @game.Developer
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(game.Publisher))
+                        {
+                            <div class="game-card-info">
+                                <span style="color: var(--retro-text-dim);">📦 Pub:</span> @game.Publisher
                             </div>
                         }
 
                         @if (game.ReleaseDate.HasValue)
                         {
                             <div class="game-card-info">
-                                Released: @game.ReleaseDate.Value.ToString("yyyy")
+                                <span style="color: var(--retro-text-dim);">📅</span> @game.ReleaseDate.Value.ToString("MMM dd, yyyy")
                             </div>
                         }
 
                         @if (game.PlaytimeMinutes.HasValue && game.PlaytimeMinutes > 0)
                         {
-                            <div class="game-card-info" style="color: var(--retro-accent);">
-                                ⏱ @FormatPlaytime(game.PlaytimeMinutes.Value) hours
+                            <div class="game-card-info" style="color: var(--retro-accent); font-weight: bold;">
+                                ⏱ @FormatPlaytime(game.PlaytimeMinutes.Value) hours played
                             </div>
                         }
 
                         @if (game.LastPlayed.HasValue)
                         {
                             <div class="game-card-info" style="color: var(--retro-warning);">
-                                Last: @FormatLastPlayed(game.LastPlayed.Value)
+                                🎮 Last: @FormatLastPlayed(game.LastPlayed.Value)
                             </div>
                         }
 
                         @if (game.Genres.Any())
                         {
                             <div style="margin-top: 10px;">
-                                @foreach (var genre in game.Genres.Take(2))
+                                @foreach (var genre in game.Genres.Take(3))
                                 {
                                     <span style="display: inline-block; padding: 2px 6px; margin: 2px; border: 1px solid var(--retro-text-dim); color: var(--retro-text-dim); font-size: 10px;">
                                         @genre
@@ -125,6 +138,17 @@
                                 }
                             </div>
                         }
+
+                        @if (!string.IsNullOrEmpty(game.Description))
+                        {
+                            <div class="game-description">
+                                @(game.Description.Length > 120 ? game.Description.Substring(0, 120) + "..." : game.Description)
+                            </div>
+                        }
+
+                        <div class="game-card-info" style="margin-top: 10px; color: var(--retro-text-dim); font-size: 11px;">
+                            <span style="color: var(--retro-text-dim);">➕ Added:</span> @game.AddedToLibrary.ToString("MMM dd, yyyy")
+                        </div>
                     </div>
                 </div>
             }
@@ -138,17 +162,166 @@
             </div>
         }
     }
+
+    @* Game Details Modal *@
+    @if (selectedGame != null)
+    {
+        <div class="modal-overlay" @onclick="CloseGameDetails">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>@selectedGame.Title</h3>
+                    <button class="modal-close" @onclick="CloseGameDetails">✕</button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(selectedGame.CoverImageUrl))
+                    {
+                        <img src="@selectedGame.CoverImageUrl" alt="@selectedGame.Title" style="max-width: 300px; max-height: 400px; margin: 0 auto 20px; display: block; border: 4px solid var(--retro-border);" />
+                    }
+                    
+                    <div style="margin-bottom: 15px;">
+                        <span class="platform-badge">@selectedGame.Platform</span>
+                        @foreach (var genre in selectedGame.Genres.Take(5))
+                        {
+                            <span style="display: inline-block; padding: 4px 8px; margin: 2px; border: 1px solid var(--retro-text-dim); color: var(--retro-text-dim); font-size: 11px;">
+                                @genre
+                            </span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(selectedGame.Description))
+                    {
+                        <div style="margin: 20px 0; padding: 15px; background-color: rgba(0, 0, 0, 0.3); border-left: 4px solid var(--retro-accent); line-height: 1.6;">
+                            <strong style="color: var(--retro-accent);">Description:</strong><br/>
+                            @selectedGame.Description
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="margin: 20px 0; padding: 15px; background-color: rgba(0, 0, 0, 0.2); border-left: 4px solid var(--retro-text-dim); line-height: 1.6; color: var(--retro-text-dim); font-style: italic;">
+                            No description available. Try syncing your library to fetch metadata.
+                        </div>
+                    }
+
+                    <div class="game-details-grid">
+                        @if (!string.IsNullOrEmpty(selectedGame.Developer))
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">👨‍💻 Developer:</strong><br/>
+                                @selectedGame.Developer
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(selectedGame.Publisher))
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">📦 Publisher:</strong><br/>
+                                @selectedGame.Publisher
+                            </div>
+                        }
+
+                        @if (selectedGame.ReleaseDate.HasValue)
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">📅 Release Date:</strong><br/>
+                                @selectedGame.ReleaseDate.Value.ToString("MMMM dd, yyyy")
+                            </div>
+                        }
+
+                        @if (selectedGame.PlaytimeMinutes.HasValue && selectedGame.PlaytimeMinutes > 0)
+                        {
+                            <div>
+                                <strong style="color: var(--retro-accent);">⏱ Playtime:</strong><br/>
+                                @FormatPlaytime(selectedGame.PlaytimeMinutes.Value) hours
+                            </div>
+                        }
+                        else
+                        {
+                            <div>
+                                <strong style="color: var(--retro-text-dim);">⏱ Playtime:</strong><br/>
+                                <span style="color: var(--retro-text-dim); font-style: italic;">No playtime recorded</span>
+                            </div>
+                        }
+
+                        @if (selectedGame.LastPlayed.HasValue)
+                        {
+                            <div>
+                                <strong style="color: var(--retro-warning);">🎮 Last Played:</strong><br/>
+                                @FormatLastPlayed(selectedGame.LastPlayed.Value)
+                            </div>
+                        }
+
+                        <div>
+                            <strong style="color: var(--retro-text-dim);">➕ Added to Library:</strong><br/>
+                            @selectedGame.AddedToLibrary.ToString("MMMM dd, yyyy")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     private UserLibrary? library;
     private List<Game> filteredGames = new();
     private Platform? selectedPlatform;
+    private string? currentUserId;
+    private bool isSyncing = false;
+    private Game? selectedGame = null;
 
     protected override async Task OnInitializedAsync()
     {
-        library = await GameLibraryService.GetUserLibraryAsync("demo-user");
-        filteredGames = library.Games.ToList();
+        await GetCurrentUserAsync();
+        
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
+            filteredGames = library.Games.ToList();
+        }
+    }
+
+    private async Task GetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+    }
+
+    private async Task SyncLibrary()
+    {
+        if (string.IsNullOrEmpty(currentUserId) || isSyncing)
+            return;
+
+        isSyncing = true;
+        StateHasChanged();
+
+        try
+        {
+            await GameLibraryService.SyncLibraryAsync(currentUserId);
+            library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
+            FilterByPlatform(selectedPlatform); // Reapply current filter
+        }
+        finally
+        {
+            isSyncing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowGameDetails(Game game)
+    {
+        selectedGame = game;
+        StateHasChanged();
+    }
+
+    private void CloseGameDetails()
+    {
+        selectedGame = null;
+        StateHasChanged();
     }
 
     private void FilterByPlatform(Platform? platform)

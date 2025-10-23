@@ -471,14 +471,14 @@ public class GogGalaxyDatabaseReader
                 {
                     if (DateTime.TryParse(releaseDate.GetString(), out var parsedDate))
                     {
-                        game.ReleaseDate = parsedDate;
+                        game.ReleaseDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
                     }
                 }
                 else if (releaseDate.ValueKind == JsonValueKind.Number)
                 {
                     // Unix timestamp
                     var timestamp = releaseDate.GetInt64();
-                    game.ReleaseDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).DateTime;
+                    game.ReleaseDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
                 }
             }
 
@@ -546,14 +546,13 @@ public class GogGalaxyDatabaseReader
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
 
-            // Query for playtime data - check if the column exists first
+            // Query for playtime data from GameTimes table
             var query = @"
                 SELECT 
                     releaseKey,
-                    value
-                FROM GameTime
-                WHERE releaseKey LIKE 'gog_%'
-                AND value IS NOT NULL";
+                    minutesInGame
+                FROM GameTimes
+                WHERE minutesInGame IS NOT NULL AND minutesInGame > 0";
 
             try
             {
@@ -565,28 +564,22 @@ public class GogGalaxyDatabaseReader
                     try
                     {
                         var releaseKey = reader.GetString(0);
-                        var valueJson = reader.GetString(1);
+                        var minutesInGame = reader.GetInt32(1);
 
-                        // Parse JSON to get minutesInGame
-                        var timeData = JsonSerializer.Deserialize<JsonElement>(valueJson);
-                        if (timeData.TryGetProperty("minutesInGame", out var minutes))
-                        {
-                            if (minutes.ValueKind == JsonValueKind.Number)
-                            {
-                                playtimes[releaseKey] = minutes.GetInt32();
-                            }
-                        }
+                        playtimes[releaseKey] = minutesInGame;
+                        _logger.LogInformation("Found playtime: {ReleaseKey} = {Minutes} minutes", releaseKey, minutesInGame);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Skip invalid entries
+                        _logger.LogDebug(ex, "Error reading playtime row");
                     }
                 }
+                
+                _logger.LogInformation("Successfully read {Count} playtime entries from GOG Galaxy database", playtimes.Count);
             }
-            catch (SqliteException)
+            catch (SqliteException ex)
             {
-                // GameTime table might not exist or have different structure
-                _logger.LogInformation("GameTime table not available or different structure");
+                _logger.LogWarning(ex, "GameTimes table not available or different structure");
             }
         }
         catch (Exception ex)
@@ -609,6 +602,7 @@ public class GogGalaxyDatabaseReader
         if (metadata.TryGetProperty("description", out var descProp) && descProp.ValueKind == JsonValueKind.String)
         {
             game.Description = descProp.GetString();
+            _logger.LogDebug("Set description for {Title}: {Length} chars", game.Title, game.Description?.Length ?? 0);
         }
         // Release date
         if (metadata.TryGetProperty("releaseDate", out var releaseDateProp))
@@ -616,13 +610,13 @@ public class GogGalaxyDatabaseReader
             if (releaseDateProp.ValueKind == JsonValueKind.String &&
                 DateTime.TryParse(releaseDateProp.GetString(), out var parsedDate))
             {
-                game.ReleaseDate = parsedDate;
+                game.ReleaseDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
             }
             else if (releaseDateProp.ValueKind == JsonValueKind.Number)
             {
                 // Unix timestamp
                 var timestamp = releaseDateProp.GetInt64();
-                game.ReleaseDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).DateTime;
+                game.ReleaseDate = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
             }
         }
         // Developer
@@ -641,17 +635,23 @@ public class GogGalaxyDatabaseReader
             if (pubElement.ValueKind == JsonValueKind.String)
                 game.Publisher = pubElement.GetString();
         }
-        // Genres (optional, if Game model supports it)
+        // Genres
         if (metadata.TryGetProperty("genres", out var genresProp) &&
-            genresProp.ValueKind == JsonValueKind.Array && genresProp.GetArrayLength() > 0)
+            genresProp.ValueKind == JsonValueKind.Array)
         {
-            var genreElement = genresProp[0];
-            if (genreElement.ValueKind == JsonValueKind.String &&
-                game.GetType().GetProperty("Genre") != null)
+            var genres = new List<string>();
+            foreach (var genreElement in genresProp.EnumerateArray())
             {
-                // Set Genre property if it exists
-                game.GetType().GetProperty("Genre")?.SetValue(game, genreElement.GetString());
+                if (genreElement.ValueKind == JsonValueKind.String)
+                {
+                    var genre = genreElement.GetString();
+                    if (!string.IsNullOrEmpty(genre))
+                    {
+                        genres.Add(genre);
+                    }
+                }
             }
+            game.Genres = genres;
         }
     }
 }

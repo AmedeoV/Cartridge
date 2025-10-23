@@ -2,9 +2,14 @@
 @rendermode InteractiveServer
 @using Cartridge.Web.Components.Layout
 @using Cartridge.Infrastructure.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @layout RetroLayout
+@attribute [Authorize]
 @inject IPlatformConnectionService ConnectionService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Connect Steam - CARTRIDGE</PageTitle>
 
@@ -112,19 +117,32 @@
     private bool isConnecting = false;
     private bool isConnected = false;
     private string connectedSteamId = "";
+    private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        await GetCurrentUserAsync();
         await CheckConnectionStatus();
+    }
+
+    private async Task GetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
     }
 
     private async Task CheckConnectionStatus()
     {
         try
         {
-            if (ConnectionService != null)
+            if (ConnectionService != null && !string.IsNullOrEmpty(currentUserId))
             {
-                isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.Steam);
+                isConnected = await ConnectionService.IsPlatformConnectedAsync(currentUserId, Platform.Steam);
                 if (isConnected)
                 {
                     connectedSteamId = "Connected";
@@ -153,6 +171,12 @@
             return;
         }
 
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            validationMessage = "User not authenticated. Please sign in again.";
+            return;
+        }
+
         isConnecting = true;
         StateHasChanged();
 
@@ -164,7 +188,7 @@
                 return;
             }
 
-            var success = await ConnectionService.ConnectPlatformAsync("demo-user", Platform.Steam, steamId.Trim());
+            var success = await ConnectionService.ConnectPlatformAsync(currentUserId, Platform.Steam, steamId.Trim());
             
             if (success)
             {
@@ -191,14 +215,17 @@
 
     private async Task Disconnect()
     {
-        await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.Steam);
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+            
+        await ConnectionService.DisconnectPlatformAsync(currentUserId, Platform.Steam);
         isConnected = false;
         connectedSteamId = "";
     }
 
     private void ViewLibrary()
     {
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo("/library");
     }
 
     private async Task HandleKeyPress(KeyboardEventArgs e)

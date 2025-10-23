@@ -1,0 +1,220 @@
+@page "/account"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Core.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@layout RetroLayout
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Account Settings - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-primary); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            ⚙️ Account Settings
+        </h2>
+    </div>
+
+    @if (currentUser != null)
+    {
+        <div class="filter-section" style="margin-bottom: 30px;">
+            <h3 class="filter-title">👤 Profile Information</h3>
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="color: var(--retro-text-dim); font-size: 11px; display: block; margin-bottom: 5px;">EMAIL:</label>
+                    <div style="color: var(--retro-text); font-size: 14px; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); border-radius: 4px;">
+                        @currentUser.Email
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="color: var(--retro-text-dim); font-size: 11px; display: block; margin-bottom: 5px;">DISPLAY NAME:</label>
+                    <div style="color: var(--retro-text); font-size: 14px; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); border-radius: 4px;">
+                        @currentUser.DisplayName
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="color: var(--retro-text-dim); font-size: 11px; display: block; margin-bottom: 5px;">MEMBER SINCE:</label>
+                    <div style="color: var(--retro-text); font-size: 14px; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); border-radius: 4px;">
+                        @currentUser.CreatedAt.ToString("MMMM dd, yyyy")
+                    </div>
+                </div>
+                @if (currentUser.LastLoginAt.HasValue)
+                {
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: var(--retro-text-dim); font-size: 11px; display: block; margin-bottom: 5px;">LAST LOGIN:</label>
+                        <div style="color: var(--retro-text); font-size: 14px; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); border-radius: 4px;">
+                            @currentUser.LastLoginAt.Value.ToString("MMMM dd, yyyy HH:mm")
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="filter-section" style="border-color: var(--retro-error);">
+            <h3 class="filter-title" style="color: var(--retro-error);">⚠️ Danger Zone</h3>
+            <div style="padding: 20px;">
+                @if (!showDeleteConfirmation)
+                {
+                    <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.6;">
+                        Deleting your account is permanent and cannot be undone. This will:
+                    </p>
+                    <ul style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.8; padding-left: 20px;">
+                        <li>Delete all your saved games from the library</li>
+                        <li>Remove all platform connections</li>
+                        <li>Delete your account information</li>
+                        <li>Sign you out immediately</li>
+                    </ul>
+                    <button class="btn-retro" 
+                            style="background: var(--retro-error); border-color: darkred;"
+                            @onclick="ShowDeleteConfirmation">
+                        🗑️ Delete My Account
+                    </button>
+                }
+                else
+                {
+                    <div style="background: rgba(255, 107, 107, 0.1); border: 2px solid var(--retro-error); padding: 20px; margin-bottom: 20px; border-radius: 4px;">
+                        <h4 style="color: var(--retro-error); font-size: 16px; margin-bottom: 15px; text-transform: uppercase;">
+                            ⚠️ Are you absolutely sure?
+                        </h4>
+                        <p style="color: var(--retro-text); margin-bottom: 15px; line-height: 1.6;">
+                            This action <strong>cannot be undone</strong>. This will permanently delete your account and remove all your data from our servers.
+                        </p>
+                        <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.6;">
+                            Please type <strong style="color: var(--retro-error);">DELETE</strong> to confirm:
+                        </p>
+                        <input type="text" 
+                               @bind="deleteConfirmationText"
+                               placeholder="Type DELETE to confirm"
+                               style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-error); font-family: 'Press Start 2P', monospace; font-size: 11px; margin-bottom: 20px; text-transform: uppercase;" />
+                        
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div style="background: var(--retro-error); color: white; padding: 15px; margin-bottom: 20px; border: 4px solid darkred; font-size: 11px;">
+                                ⚠️ @errorMessage
+                            </div>
+                        }
+
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <button class="btn-retro" 
+                                    style="background: var(--retro-error); border-color: darkred;"
+                                    @onclick="DeleteAccount"
+                                    disabled="@isDeleting">
+                                @if (isDeleting)
+                                {
+                                    <span>⏳ Deleting...</span>
+                                }
+                                else
+                                {
+                                    <span>🗑️ Yes, Delete My Account</span>
+                                }
+                            </button>
+                            <button class="btn-retro btn-retro-secondary" 
+                                    @onclick="CancelDelete"
+                                    disabled="@isDeleting">
+                                ❌ Cancel
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/library" style="color: var(--retro-text-dim); font-size: 11px; text-decoration: none;">← Back to Library</a>
+        </div>
+    }
+</div>
+
+@code {
+    private ApplicationUser? currentUser;
+    private bool showDeleteConfirmation = false;
+    private bool isDeleting = false;
+    private string deleteConfirmationText = "";
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserAsync();
+    }
+
+    private async Task LoadUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                currentUser = await UserManager.FindByIdAsync(userId);
+            }
+        }
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        showDeleteConfirmation = true;
+        deleteConfirmationText = "";
+        errorMessage = null;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+        deleteConfirmationText = "";
+        errorMessage = null;
+    }
+
+    private async Task DeleteAccount()
+    {
+        if (deleteConfirmationText.Trim().ToUpper() != "DELETE")
+        {
+            errorMessage = "Please type DELETE to confirm account deletion.";
+            return;
+        }
+
+        if (currentUser == null)
+        {
+            errorMessage = "User not found.";
+            return;
+        }
+
+        isDeleting = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Delete the user account (this will cascade delete games and connections due to foreign keys)
+            var result = await UserManager.DeleteAsync(currentUser);
+            
+            if (result.Succeeded)
+            {
+                // Sign out the user
+                await SignInManager.SignOutAsync();
+                
+                // Redirect to home page
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "Failed to delete account: " + string.Join(", ", result.Errors.Select(e => e.Description));
+                isDeleting = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            isDeleting = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -2,9 +2,14 @@
 @rendermode InteractiveServer
 @using Cartridge.Web.Components.Layout
 @using Cartridge.Infrastructure.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @layout RetroLayout
+@attribute [Authorize]
 @inject IPlatformConnectionService ConnectionService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Connect Rockstar - CARTRIDGE</PageTitle>
 
@@ -59,22 +64,45 @@
 
 @code {
     private bool isConnected = false;
+    private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        await GetCurrentUserAsync();
+        
         // For demo, always check for connection on load
-        isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.Rockstar);
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            isConnected = await ConnectionService.IsPlatformConnectedAsync(currentUserId, Platform.Rockstar);
+        }
+    }
+
+    private async Task GetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
     }
 
     private async Task Connect()
     {
-        await ConnectionService.ConnectPlatformAsync("demo-user", Platform.Rockstar, null);
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+            
+        await ConnectionService.ConnectPlatformAsync(currentUserId, Platform.Rockstar, string.Empty);
         isConnected = true;
     }
 
     private async Task Disconnect()
     {
-        await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.Rockstar);
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+            
+        await ConnectionService.DisconnectPlatformAsync(currentUserId, Platform.Rockstar);
         isConnected = false;
     }
 

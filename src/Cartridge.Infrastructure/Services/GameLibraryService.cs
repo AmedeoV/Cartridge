@@ -1,18 +1,24 @@
 using Cartridge.Core.Interfaces;
 using Cartridge.Core.Models;
+using Cartridge.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Cartridge.Infrastructure.Services;
 
 /// <summary>
-/// Mock implementation of Game Library Service for development
+/// Implementation of Game Library Service with database persistence
 /// </summary>
 public class GameLibraryService : IGameLibraryService
 {
     private readonly IEnumerable<IPlatformConnector> _platformConnectors;
+    private readonly ApplicationDbContext _context;
 
-    public GameLibraryService(IEnumerable<IPlatformConnector> platformConnectors)
+    public GameLibraryService(
+        IEnumerable<IPlatformConnector> platformConnectors,
+        ApplicationDbContext context)
     {
         _platformConnectors = platformConnectors;
+        _context = context;
     }
 
     public async Task<UserLibrary> GetUserLibraryAsync(string userId)
@@ -23,19 +29,42 @@ public class GameLibraryService : IGameLibraryService
             LastSync = DateTime.UtcNow
         };
 
-        // Fetch games from all connected platforms
-        foreach (var connector in _platformConnectors)
+        // Get games from database
+        var userGames = await _context.UserGames
+            .Where(g => g.UserId == userId)
+            .OrderByDescending(g => g.LastPlayed ?? g.AddedAt)
+            .ToListAsync();
+        
+        library.Games = userGames.Select(ug => new Game
         {
-            if (await connector.IsConnectedAsync(userId))
-            {
-                var games = await connector.FetchGamesAsync(userId);
-                library.Games.AddRange(games);
-                library.ConnectedPlatforms[connector.PlatformType] = true;
-            }
+            Id = ug.ExternalId ?? ug.Id,
+            Title = ug.Title,
+            Platform = ug.Platform,
+            CoverImageUrl = ug.CoverImageUrl,
+            PlaytimeMinutes = ug.PlaytimeMinutes,
+            LastPlayed = ug.LastPlayed,
+            AddedToLibrary = ug.AddedAt,
+            Description = ug.Description,
+            ReleaseDate = ug.ReleaseDate,
+            Developer = ug.Developer,
+            Publisher = ug.Publisher,
+            Genres = string.IsNullOrEmpty(ug.Genres) 
+                ? new List<string>() 
+                : ug.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
+        }).ToList();
+        
+        // Get connected platforms from database
+        var connections = await _context.PlatformConnections
+            .Where(c => c.UserId == userId && c.IsConnected)
+            .ToListAsync();
+        
+        foreach (var conn in connections)
+        {
+            library.ConnectedPlatforms[conn.Platform] = true;
         }
-
+        
         // Also mark platforms as connected if we have games from them
-        // (e.g., Epic games imported via GOG Galaxy database)
+        // (for platforms that don't have explicit connections)
         foreach (var platform in library.Games.Select(g => g.Platform).Distinct())
         {
             if (!library.ConnectedPlatforms.ContainsKey(platform))
@@ -49,25 +78,120 @@ public class GameLibraryService : IGameLibraryService
 
     public async Task<List<Game>> GetGamesByPlatformAsync(string userId, Platform platform)
     {
-        var library = await GetUserLibraryAsync(userId);
-        return library.Games.Where(g => g.Platform == platform).ToList();
+        var userGames = await _context.UserGames
+            .Where(g => g.UserId == userId && g.Platform == platform)
+            .OrderByDescending(g => g.LastPlayed ?? g.AddedAt)
+            .ToListAsync();
+        
+        return userGames.Select(ug => new Game
+        {
+            Id = ug.ExternalId ?? ug.Id,
+            Title = ug.Title,
+            Platform = ug.Platform,
+            CoverImageUrl = ug.CoverImageUrl,
+            PlaytimeMinutes = ug.PlaytimeMinutes,
+            LastPlayed = ug.LastPlayed,
+            AddedToLibrary = ug.AddedAt,
+            Description = ug.Description,
+            ReleaseDate = ug.ReleaseDate,
+            Developer = ug.Developer,
+            Publisher = ug.Publisher,
+            Genres = string.IsNullOrEmpty(ug.Genres) 
+                ? new List<string>() 
+                : ug.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
+        }).ToList();
     }
 
-    public Task<Game?> GetGameByIdAsync(string gameId)
+    public async Task<Game?> GetGameByIdAsync(string gameId)
     {
-        // TODO: Implement proper game lookup
-        return Task.FromResult<Game?>(null);
+        var userGame = await _context.UserGames
+            .FirstOrDefaultAsync(g => g.Id == gameId || g.ExternalId == gameId);
+        
+        if (userGame == null)
+            return null;
+        
+        return new Game
+        {
+            Id = userGame.ExternalId ?? userGame.Id,
+            Title = userGame.Title,
+            Platform = userGame.Platform,
+            CoverImageUrl = userGame.CoverImageUrl,
+            PlaytimeMinutes = userGame.PlaytimeMinutes,
+            LastPlayed = userGame.LastPlayed,
+            AddedToLibrary = userGame.AddedAt,
+            Description = userGame.Description,
+            ReleaseDate = userGame.ReleaseDate,
+            Developer = userGame.Developer,
+            Publisher = userGame.Publisher,
+            Genres = string.IsNullOrEmpty(userGame.Genres) 
+                ? new List<string>() 
+                : userGame.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
+        };
     }
 
     public async Task SyncLibraryAsync(string userId)
     {
-        // Force refresh from all platforms
-        foreach (var connector in _platformConnectors)
+        // Force refresh from all connected platforms
+        var connections = await _context.PlatformConnections
+            .Where(c => c.UserId == userId && c.IsConnected)
+            .ToListAsync();
+        
+        foreach (var connection in connections)
         {
-            if (await connector.IsConnectedAsync(userId))
+            var connector = _platformConnectors.FirstOrDefault(c => c.PlatformType == connection.Platform);
+            if (connector != null && await connector.IsConnectedAsync(userId))
             {
-                await connector.FetchGamesAsync(userId);
+                var games = await connector.FetchGamesAsync(userId);
+                
+                // Update games in database
+                foreach (var game in games)
+                {
+                    var existing = await _context.UserGames
+                        .FirstOrDefaultAsync(g => g.UserId == userId && 
+                                                g.ExternalId == game.Id && 
+                                                g.Platform == game.Platform);
+                    
+                    if (existing == null)
+                    {
+                        var userGame = new UserGame
+                        {
+                            UserId = userId,
+                            Title = game.Title,
+                            Platform = game.Platform,
+                            ExternalId = game.Id,
+                            CoverImageUrl = game.CoverImageUrl,
+                            PlaytimeMinutes = game.PlaytimeMinutes,
+                            LastPlayed = game.LastPlayed,
+                            IsManuallyAdded = false,
+                            AddedAt = DateTime.UtcNow,
+                            Description = game.Description,
+                            ReleaseDate = game.ReleaseDate,
+                            Developer = game.Developer,
+                            Publisher = game.Publisher,
+                            Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null
+                        };
+                        
+                        _context.UserGames.Add(userGame);
+                    }
+                    else
+                    {
+                        existing.Title = game.Title;
+                        existing.CoverImageUrl = game.CoverImageUrl;
+                        existing.PlaytimeMinutes = game.PlaytimeMinutes;
+                        existing.LastPlayed = game.LastPlayed;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                        existing.Description = game.Description;
+                        existing.ReleaseDate = game.ReleaseDate;
+                        existing.Developer = game.Developer;
+                        existing.Publisher = game.Publisher;
+                        existing.Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null;
+                    }
+                }
+                
+                connection.LastSyncedAt = DateTime.UtcNow;
             }
         }
+        
+        await _context.SaveChangesAsync();
     }
 }

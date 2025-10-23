@@ -1,129 +1,228 @@
 ﻿@page "/"
 @rendermode InteractiveServer
-@using Cartridge.Web.Components.Layout
-@layout RetroLayout
-@using Cartridge.Core.Interfaces
-@using Cartridge.Core.Models
-@inject IGameLibraryService GameLibraryService
+@layout LandingLayout
 @inject NavigationManager Navigation
 
-<PageTitle>CARTRIDGE - Home</PageTitle>
+<PageTitle>CARTRIDGE - Your Gaming Universe</PageTitle>
 
-<div style="text-align: center; padding: 40px 20px;">
-    <h2 style="color: var(--retro-primary); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
-        ▼ UNIFIED GAMING LIBRARY ▼
-    </h2>
-    <p style="color: var(--retro-text-dim); font-size: 16px; max-width: 800px; margin: 0 auto 30px;">
-        All your games from Steam, Epic Games, GOG, and more - in one retro-styled interface.
-        Track your playtime, organize your library, and never lose track of your collection again.
-    </p>
-    <button class="btn-retro btn-retro-secondary" @onclick="LoadLibrary" style="margin-bottom: 20px;">
-        🔄 Refresh Library
-    </button>
-
-    @if (library == null)
-    {
-        <div class="loading-spinner"></div>
-    }
-    else
-    {
-        <div style="display: flex; justify-content: center; gap: 60px; flex-wrap: wrap; margin: 40px 0;">
-            <div>
-                <div class="stat-counter">@library.Games.Count</div>
-                <span class="stat-label">Total Games</span>
+<div class="landing-container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="title-wrapper">
+                <h1 class="hero-title">
+                    <span class="title-line">🎮 CARTRIDGE 🎮</span>
+                    <span class="title-subtitle">YOUR GAMING UNIVERSE</span>
+                </h1>
             </div>
-            <div>
-                <div class="stat-counter">@library.ConnectedPlatforms.Count(p => p.Value)</div>
-                <span class="stat-label">Connected Platforms</span>
-            </div>
-            <div>
-                <div class="stat-counter" style="color: var(--retro-accent);">
-                    @FormatPlaytime(library.Games.Sum(g => g.PlaytimeMinutes ?? 0))
-                </div>
-                <span class="stat-label">Total Hours Played</span>
-            </div>
-        </div>
-
-        <div style="margin: 40px 0;">
-            <a href="/library" class="btn-retro">► VIEW YOUR LIBRARY ◄</a>
-        </div>
-
-        <div style="margin-top: 60px;">
-            <h3 style="color: var(--retro-secondary); font-size: 24px; text-transform: uppercase; margin-bottom: 30px;">
-                ◄ Recently Played ►
-            </h3>
             
-            <div class="game-grid" style="max-width: 900px; margin: 0 auto;">
-                @foreach (var game in library.Games.Where(g => g.LastPlayed.HasValue).OrderByDescending(g => g.LastPlayed).Take(3))
-                {
-                    <div class="game-card">
-                        @if (!string.IsNullOrEmpty(game.CoverImageUrl))
-                        {
-                            <img src="@game.CoverImageUrl" 
-                                 alt="@game.Title" 
-                                 class="game-card-image"
-                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                            <div class="image-placeholder" style="display: none; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
-                                🎮
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="image-placeholder" style="display: flex; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
-                                🎮
-                            </div>
-                        }
-                        <div class="game-card-body">
-                            <h4 class="game-card-title">@game.Title</h4>
-                            <div class="game-card-info">
-                                <span class="platform-badge">@game.Platform</span>
-                            </div>
-                            <div class="game-card-info">
-                                Last played: @game.LastPlayed?.ToString("MMM dd, yyyy")
-                            </div>
-                            @if (game.PlaytimeMinutes.HasValue)
-                            {
-                                <div class="game-card-info">
-                                    Playtime: @FormatPlaytime(game.PlaytimeMinutes.Value) hours
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
+            <p class="hero-description">
+                ALL YOUR GAMES FROM EVERY PLATFORM<br/>
+                IN ONE EPIC RETRO INTERFACE
+            </p>
+
+            <div class="cta-buttons">
+                <button class="btn-retro btn-large" @onclick="NavigateToSignUp">
+                    ► START YOUR ADVENTURE ◄
+                </button>
+                <button class="btn-retro btn-retro-secondary btn-large" @onclick="NavigateToSignIn">
+                    ► SIGN IN ◄
+                </button>
+            </div>
+
+            <div class="platform-badges">
+                <div class="platform-badge-item">Steam</div>
+                <div class="platform-badge-item">Epic</div>
+                <div class="platform-badge-item">GOG</div>
+                <div class="platform-badge-item">Ubisoft</div>
+                <div class="platform-badge-item">Rockstar</div>
+                <div class="platform-badge-item">Amazon</div>
             </div>
         </div>
-    }
+    </section>
+
+    <!-- Animated Demo Section -->
+    <section class="demo-section">
+        <h2 class="section-title">
+            ◄◄◄ LIVE DEMO ►►►
+        </h2>
+        
+        <div class="demo-stats">
+            <div class="demo-stat-box pulse">
+                <div class="stat-number">@animatedGameCount</div>
+                <div class="stat-label">GAMES COLLECTED</div>
+            </div>
+            <div class="demo-stat-box pulse-delayed">
+                <div class="stat-number">@animatedPlatforms</div>
+                <div class="stat-label">PLATFORMS CONNECTED</div>
+            </div>
+            <div class="demo-stat-box pulse-more-delayed">
+                <div class="stat-number">@animatedHours</div>
+                <div class="stat-label">HOURS PLAYED</div>
+            </div>
+        </div>
+
+        <div class="demo-games-carousel">
+            @foreach (var game in demoGames)
+            {
+                <div class="demo-game-card @(game.IsActive ? "active" : "")">
+                    <div class="demo-game-icon">@game.Icon</div>
+                    <div class="demo-game-title">@game.Title</div>
+                    <div class="demo-game-platform">@game.Platform</div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <h2 class="section-title">
+            ◄ LEGENDARY FEATURES ►
+        </h2>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🌟</div>
+                <h3 class="feature-title">UNIFIED LIBRARY</h3>
+                <p class="feature-text">
+                    SEE ALL YOUR GAMES FROM STEAM, EPIC, GOG, AND MORE IN ONE PLACE
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">TRACK STATS</h3>
+                <p class="feature-text">
+                    MONITOR YOUR PLAYTIME AND GAMING ACHIEVEMENTS ACROSS PLATFORMS
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">MANUAL ADDING</h3>
+                <p class="feature-text">
+                    ADD GAMES MANUALLY WITH AUTOMATIC COVER ART AND METADATA
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3 class="feature-title">AUTO SYNC</h3>
+                <p class="feature-text">
+                    AUTOMATIC SYNCHRONIZATION WITH YOUR GAMING PLATFORMS
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3 class="feature-title">RETRO STYLE</h3>
+                <p class="feature-text">
+                    CLASSIC PIXEL ART INTERFACE WITH MODERN FUNCTIONALITY
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3 class="feature-title">SECURE & PRIVATE</h3>
+                <p class="feature-text">
+                    YOUR DATA IS ENCRYPTED AND STORED SECURELY
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="final-cta">
+        <h2 class="cta-title">READY TO START?</h2>
+        <p class="cta-description">
+            JOIN THOUSANDS OF GAMERS WHO HAVE<br/>
+            UNIFIED THEIR GAMING LIBRARIES
+        </p>
+        <button class="btn-retro btn-xlarge" @onclick="NavigateToSignUp">
+            ► CREATE YOUR ACCOUNT NOW ◄
+        </button>
+        <p class="cta-note">
+            FREE FOREVER • NO CREDIT CARD REQUIRED
+        </p>
+    </section>
 </div>
 
 @code {
-    private UserLibrary? library;
-
-    protected override async Task OnInitializedAsync()
+    private int animatedGameCount;
+    private int animatedPlatforms;
+    private int animatedHours;
+    private Timer? animationTimer;
+    private Timer? carouselTimer;
+    
+    private class DemoGame
     {
-        await LoadLibrary();
+        public string Icon { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Platform { get; set; } = "";
+        public bool IsActive { get; set; }
     }
+    
+    private List<DemoGame> demoGames = new();
+    private int currentGameIndex;
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnInitialized()
     {
-        // Reload when navigating back to this page
-        await LoadLibrary();
-    }
-
-    private async Task LoadLibrary()
-    {
-        try
+        // Initialize demo games
+        demoGames = new List<DemoGame>
         {
-            library = await GameLibraryService.GetUserLibraryAsync("demo-user");
-            StateHasChanged();
-        }
-        catch (Exception ex)
+            new DemoGame { Icon = "🎮", Title = "CYBERPUNK 2077", Platform = "STEAM", IsActive = true },
+            new DemoGame { Icon = "⚔️", Title = "THE WITCHER 3", Platform = "GOG" },
+            new DemoGame { Icon = "🏎️", Title = "FORZA HORIZON 5", Platform = "STEAM" },
+            new DemoGame { Icon = "🔫", Title = "VALORANT", Platform = "EPIC" },
+            new DemoGame { Icon = "🌍", Title = "RED DEAD REDEMPTION 2", Platform = "ROCKSTAR" },
+            new DemoGame { Icon = "🎯", Title = "RAINBOW SIX SIEGE", Platform = "UBISOFT" },
+            new DemoGame { Icon = "👾", Title = "HADES", Platform = "EPIC" },
+            new DemoGame { Icon = "🗡️", Title = "ELDEN RING", Platform = "STEAM" }
+        };
+
+        // Start counter animation
+        animationTimer = new Timer(_ =>
         {
-            Console.WriteLine($"Error loading library: {ex.Message}");
-        }
+            InvokeAsync(() =>
+            {
+                if (animatedGameCount < 247)
+                    animatedGameCount += 7;
+                if (animatedPlatforms < 6)
+                    animatedPlatforms++;
+                if (animatedHours < 1234)
+                    animatedHours += 43;
+                
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(50));
+
+        // Start carousel animation
+        carouselTimer = new Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                demoGames[currentGameIndex].IsActive = false;
+                currentGameIndex = (currentGameIndex + 1) % demoGames.Count;
+                demoGames[currentGameIndex].IsActive = true;
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
     }
 
-    private string FormatPlaytime(int minutes)
+    private void NavigateToSignUp()
     {
-        return (minutes / 60.0).ToString("F1");
+        Navigation.NavigateTo("/signup");
+    }
+
+    private void NavigateToSignIn()
+    {
+        Navigation.NavigateTo("/signin");
+    }
+
+    public void Dispose()
+    {
+        animationTimer?.Dispose();
+        carouselTimer?.Dispose();
     }
 }
+

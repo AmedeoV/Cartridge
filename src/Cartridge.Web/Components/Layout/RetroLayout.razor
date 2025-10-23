@@ -1,13 +1,28 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
 
 <div class="retro-header">
     <h1 class="retro-logo">🎮 CARTRIDGE 🎮</h1>
-    <nav class="retro-nav">
-        <a href="/" class="@(IsActive("/") ? "active" : "")">🏠 HOME</a>
-        <a href="/library" class="@(IsActive("/library") ? "active" : "")">📚 LIBRARY</a>
-        <a href="/platforms" class="@(IsActivePlatforms() ? "active" : "")">🎮 PLATFORMS</a>
-        <a href="/stats" class="@(IsActive("/stats") ? "active" : "")">📊 STATS</a>
-    </nav>
+    <AuthorizeView>
+        <Authorized>
+            <nav class="retro-nav">
+                <a href="/library" class="@(IsActive("/library") ? "active" : "")">📚 LIBRARY</a>
+                <a href="/platforms" class="@(IsActivePlatforms() ? "active" : "")">🎮 PLATFORMS</a>
+                <a href="/stats" class="@(IsActive("/stats") ? "active" : "")">📊 STATS</a>
+                <a href="/account" class="@(IsActive("/account") ? "active" : "")">⚙️ ACCOUNT</a>
+                <form method="post" action="/signout" style="display: inline;">
+                    <button type="submit" style="background: none; border: none; color: var(--retro-warning); cursor: pointer; font-family: 'Press Start 2P', monospace; font-size: 11px; padding: 8px 16px;">🚪 SIGN OUT</button>
+                </form>
+            </nav>
+        </Authorized>
+        <NotAuthorized>
+            <nav class="retro-nav">
+                <a href="/" class="@(IsActive("/") ? "active" : "")">� HOME</a>
+                <a href="/signin" class="@(IsActive("/signin") ? "active" : "")">🔑 SIGN IN</a>
+                <a href="/signup" class="@(IsActive("/signup") ? "active" : "")">� SIGN UP</a>
+            </nav>
+        </NotAuthorized>
+    </AuthorizeView>
 </div>
 
 <main class="main-content">

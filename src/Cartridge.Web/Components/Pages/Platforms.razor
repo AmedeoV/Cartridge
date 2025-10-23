@@ -4,8 +4,13 @@
 @layout RetroLayout
 @using Cartridge.Core.Interfaces
 @using Cartridge.Core.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@attribute [Authorize]
 @inject IGameLibraryService GameLibraryService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>CARTRIDGE - Platforms</PageTitle>
 
@@ -224,9 +229,26 @@
 
 @code {
     private UserLibrary? library;
+    private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
-        library = await GameLibraryService.GetUserLibraryAsync("demo-user");
+        await GetCurrentUserAsync();
+        
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
+        }
+    }
+
+    private async Task GetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
     }
 }

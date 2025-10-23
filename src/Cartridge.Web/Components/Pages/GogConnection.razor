@@ -5,10 +5,15 @@
 @using Cartridge.Infrastructure.Connectors
 @using Cartridge.Infrastructure.Gog
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @layout RetroLayout
+@attribute [Authorize]
 @inject IPlatformConnectionService ConnectionService
 @inject NavigationManager Navigation
 @inject GogGalaxyDatabaseReader GalaxyReader
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Connect GOG - CARTRIDGE</PageTitle>
 
@@ -198,17 +203,33 @@
     private string? uploadedFileName;
     private string? uploadedFileSize;
     private byte[]? uploadedDatabaseContent;
+    private string? currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        await GetCurrentUserAsync();
         await CheckConnectionStatus();
+    }
+
+    private async Task GetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
     }
 
     private async Task CheckConnectionStatus()
     {
         try
         {
-            isConnected = await ConnectionService.IsPlatformConnectedAsync("demo-user", Platform.GOG);
+            if (string.IsNullOrEmpty(currentUserId))
+                return;
+                
+            isConnected = await ConnectionService.IsPlatformConnectedAsync(currentUserId, Platform.GOG);
         }
         catch (Exception ex)
         {
@@ -291,8 +312,14 @@
                     return;
                 }
 
+                if (string.IsNullOrEmpty(currentUserId))
+                {
+                    errorMessage = "User not authenticated. Please sign in again.";
+                    return;
+                }
+
                 // Connect using the temporary database path
-                var success = await ConnectionService.ConnectPlatformAsync("demo-user", Platform.GOG, $"uploaded-db:{tempPath}");
+                var success = await ConnectionService.ConnectPlatformAsync(currentUserId, Platform.GOG, $"uploaded-db:{tempPath}");
                 
                 if (success)
                 {
@@ -350,7 +377,10 @@
     {
         try
         {
-            await ConnectionService.DisconnectPlatformAsync("demo-user", Platform.GOG);
+            if (string.IsNullOrEmpty(currentUserId))
+                return;
+                
+            await ConnectionService.DisconnectPlatformAsync(currentUserId, Platform.GOG);
             isConnected = false;
             successMessage = null;
             StateHasChanged();
@@ -364,7 +394,7 @@
 
     private void ViewLibrary()
     {
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo("/library");
     }
 }
 

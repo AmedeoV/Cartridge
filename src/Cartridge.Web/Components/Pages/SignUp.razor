@@ -1,0 +1,131 @@
+﻿@page "/signup"
+@layout RetroLayout
+@rendermode InteractiveServer
+@using Cartridge.Core.Models
+@using Cartridge.Infrastructure.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Sign Up - CARTRIDGE</PageTitle>
+
+<div style="max-width: 600px; margin: 60px auto; padding: 40px; background: var(--retro-bg-lighter); border: 4px solid var(--retro-border); box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.3);">
+    <h2 style="color: var(--retro-primary); text-align: center; margin-bottom: 30px; font-size: 24px;">
+        🎮 CREATE ACCOUNT 🎮
+    </h2>
+    
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div style="background: var(--retro-error); color: white; padding: 18px; margin-bottom: 20px; border: 4px solid darkred; font-size: 11px; line-height: 1.8;">
+            ⚠️ @errorMessage
+        </div>
+    }
+
+    @if (isSuccess)
+    {
+        <div style="background: var(--retro-accent); color: var(--retro-bg); padding: 18px; margin-bottom: 20px; border: 4px solid darkgreen; font-size: 11px; text-align: center; line-height: 1.8;">
+            ✓ Registration successful! Redirecting...
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@registerRequest" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+            
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; color: var(--retro-text); font-size: 11px; margin-bottom: 10px; letter-spacing: 1px;">EMAIL:</label>
+                <InputText @bind-Value="registerRequest.Email" 
+                           class="retro-input" 
+                           placeholder="ENTER YOUR EMAIL"
+                           style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Press Start 2P', monospace; font-size: 11px;" />
+                <ValidationMessage For="@(() => registerRequest.Email)" style="color: var(--retro-warning); font-size: 10px; margin-top: 8px; display: block; line-height: 1.6; font-weight: bold;" />
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; color: var(--retro-text); font-size: 11px; margin-bottom: 10px; letter-spacing: 1px;">DISPLAY NAME (OPTIONAL):</label>
+                <InputText @bind-Value="registerRequest.DisplayName" 
+                           class="retro-input" 
+                           placeholder="YOUR GAMER NAME"
+                           style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Press Start 2P', monospace; font-size: 11px;" />
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; color: var(--retro-text); font-size: 11px; margin-bottom: 10px; letter-spacing: 1px;">PASSWORD:</label>
+                <InputText type="password" @bind-Value="registerRequest.Password" 
+                           class="retro-input" 
+                           placeholder="MIN 8 CHARACTERS"
+                           style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Press Start 2P', monospace; font-size: 11px;" />
+                <ValidationMessage For="@(() => registerRequest.Password)" style="color: var(--retro-warning); font-size: 10px; margin-top: 8px; display: block; line-height: 1.6; font-weight: bold;" />
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; color: var(--retro-text); font-size: 11px; margin-bottom: 10px; letter-spacing: 1px;">CONFIRM PASSWORD:</label>
+                <InputText type="password" @bind-Value="registerRequest.ConfirmPassword" 
+                           class="retro-input" 
+                           placeholder="RE-ENTER PASSWORD"
+                           style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Press Start 2P', monospace; font-size: 11px;" />
+                <ValidationMessage For="@(() => registerRequest.ConfirmPassword)" style="color: var(--retro-warning); font-size: 10px; margin-top: 8px; display: block; line-height: 1.6; font-weight: bold;" />
+            </div>
+
+            <div style="text-align: center;">
+                <button type="submit" class="btn-retro" disabled="@isLoading" style="width: 100%; margin-bottom: 15px;">
+                    @if (isLoading)
+                    {
+                        <span>⏳ CREATING ACCOUNT...</span>
+                    }
+                    else
+                    {
+                        <span>► CREATE ACCOUNT ◄</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--retro-border);">
+            <p style="color: var(--retro-text-dim); font-size: 10px; margin-bottom: 15px; line-height: 1.8;">ALREADY HAVE AN ACCOUNT?</p>
+            <a href="/signin" class="btn-retro btn-retro-secondary">► SIGN IN ◄</a>
+        </div>
+    }
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/" style="color: var(--retro-text-dim); font-size: 9px; text-decoration: none;">← BACK TO HOME</a>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerRequest { get; set; } = new();
+    
+    private bool isLoading = false;
+    private bool isSuccess = false;
+    private string? errorMessage;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerRequest);
+
+            if (result.Success)
+            {
+                isSuccess = true;
+                // Short delay optional; remove if unnecessary
+                await Task.Delay(800);
+                Navigation.NavigateTo("/signin?registered=true", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = result.Message;
+                isLoading = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            isLoading = false;
+        }
+    }
+}
+

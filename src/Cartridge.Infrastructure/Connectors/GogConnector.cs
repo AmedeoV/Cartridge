@@ -60,19 +60,62 @@ public class GogConnector : IPlatformConnector
                 var galaxyGames = await _galaxyReader.ReadGamesFromGalaxyAsync(customPath);
                 
                 // Read playtime data
+                _logger.LogInformation("Reading playtime data from GOG Galaxy database...");
                 var playtimes = await _galaxyReader.ReadPlaytimeDataAsync(customPath);
+                _logger.LogInformation("Playtime dictionary contains {Count} entries", playtimes.Count);
                 
                 // Update games with playtime data
                 foreach (var game in galaxyGames)
                 {
-                    var releaseKey = game.Id.Replace("gog_", "");
-                    if (playtimes.TryGetValue(releaseKey, out var playtime))
+                    // The game.Id is in format "platform-productId" (e.g., "gog-gog_123", "epicgames-abc123")
+                    // The playtime dictionary keys are the raw releaseKeys from database (e.g., "gog_123", "epic_abc123")
+                    // We need to match against the database releaseKey format
+                    
+                    var parts = game.Id.Split('-', 2); // Split into at most 2 parts
+                    var platformPrefix = parts[0]; // "gog", "epicgames", etc.
+                    var productId = parts.Length > 1 ? parts[1] : game.Id;
+                    
+                    // Try different releaseKey formats based on platform
+                    string? matchedKey = null;
+                    int playtime = 0;
+                    
+                    // Strategy 1: Direct match (for GOG games like "gog_123")
+                    if (playtimes.TryGetValue(productId, out playtime))
+                    {
+                        matchedKey = productId;
+                    }
+                    // Strategy 2: Add platform prefix for non-GOG platforms (e.g., "epic_abc123" for EpicGames)
+                    else if (platformPrefix != "gog")
+                    {
+                        // Map platform names to their database prefix
+                        var dbPrefix = platformPrefix switch
+                        {
+                            "epicgames" => "epic",
+                            "ubisoftconnect" => "uplay",
+                            "amazon" => "amazon",
+                            "rockstar" => "rockstar",
+                            _ => platformPrefix
+                        };
+                        
+                        var altKey = $"{dbPrefix}_{productId}";
+                        if (playtimes.TryGetValue(altKey, out playtime))
+                        {
+                            matchedKey = altKey;
+                        }
+                    }
+                    
+                    if (matchedKey != null)
                     {
                         game.PlaytimeMinutes = playtime;
+                        _logger.LogInformation("✓ Set playtime for {Title}: {Minutes} minutes (key: {Key})", 
+                            game.Title, playtime, matchedKey);
                     }
-                }
-                
-                games.AddRange(galaxyGames);
+                    else
+                    {
+                        _logger.LogDebug("✗ No playtime found for {Title} (ID: {GameId}, tried: {ProductId})", 
+                            game.Title, game.Id, productId);
+                    }
+                }                games.AddRange(galaxyGames);
                 
                 _logger.LogInformation("Found {Count} GOG Galaxy games for user {UserId}", galaxyGames.Count, userId);
             }
@@ -92,10 +135,44 @@ public class GogConnector : IPlatformConnector
                 
                 foreach (var game in galaxyGames)
                 {
-                    var releaseKey = game.Id.Replace("gog_", "");
-                    if (playtimes.TryGetValue(releaseKey, out var playtime))
+                    // The game.Id is in format "platform-productId" (e.g., "gog-gog_123", "epicgames-abc123")
+                    // The playtime dictionary keys are the raw releaseKeys from database (e.g., "gog_123", "epic_abc123")
+                    
+                    var parts = game.Id.Split('-', 2);
+                    var platformPrefix = parts[0];
+                    var productId = parts.Length > 1 ? parts[1] : game.Id;
+                    
+                    string? matchedKey = null;
+                    int playtime = 0;
+                    
+                    // Try direct match first
+                    if (playtimes.TryGetValue(productId, out playtime))
+                    {
+                        matchedKey = productId;
+                    }
+                    // Try with platform prefix for non-GOG platforms
+                    else if (platformPrefix != "gog")
+                    {
+                        var dbPrefix = platformPrefix switch
+                        {
+                            "epicgames" => "epic",
+                            "ubisoftconnect" => "uplay",
+                            "amazon" => "amazon",
+                            "rockstar" => "rockstar",
+                            _ => platformPrefix
+                        };
+                        
+                        var altKey = $"{dbPrefix}_{productId}";
+                        if (playtimes.TryGetValue(altKey, out playtime))
+                        {
+                            matchedKey = altKey;
+                        }
+                    }
+                    
+                    if (matchedKey != null)
                     {
                         game.PlaytimeMinutes = playtime;
+                        _logger.LogDebug("Set playtime for {Title}: {Minutes} minutes", game.Title, playtime);
                     }
                 }
                 
