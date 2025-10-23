@@ -82,24 +82,6 @@
             </p>
             
             <div style="margin-bottom: 15px;">
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button class="btn-retro" style="font-size: 12px; padding: 8px 12px;" @onclick="OpenDatabaseFolder">
-                        📂 Open Database Folder
-                    </button>
-                    <button class="btn-retro btn-retro-secondary" style="font-size: 12px; padding: 8px 12px;" @onclick="CopyPathToClipboard">
-                        📋 Copy Path
-                    </button>
-                </div>
-                
-                @if (!string.IsNullOrEmpty(copyMessage))
-                {
-                    <div style="background: rgba(78, 205, 196, 0.1); border: 2px solid var(--retro-primary); padding: 8px; margin-bottom: 10px; border-radius: 4px;">
-                        <p style="color: var(--retro-primary); margin: 0; font-size: 12px;">
-                            ✓ @copyMessage
-                        </p>
-                    </div>
-                }
-                
                 <!-- ProductDetails Upload -->
                 <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; margin-top: 20px; text-transform: uppercase;">
                     📁 1. Upload ProductDetails.sqlite
@@ -154,10 +136,9 @@
             <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-top: 20px;">
                 <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0; line-height: 1.6;">
                     <strong style="color: var(--retro-primary);">💡 How to find your databases:</strong><br/>
-                    1. Click the <strong>"📂 Open Database Folder"</strong> button above, or:<br/>
-                    2. Open File Explorer and press <kbd style="background: var(--retro-bg); padding: 2px 6px; border-radius: 3px;">Win + R</kbd><br/>
-                    3. Type: <code style="color: var(--retro-highlight);">%LOCALAPPDATA%\Amazon Games\Data\Games\Sql</code> and press Enter<br/>
-                    4. Upload <strong>BOTH</strong> files: <code style="color: var(--retro-highlight);">ProductDetails.sqlite</code> AND <code style="color: var(--retro-highlight);">GameProductInfo.sqlite</code><br/><br/>
+                    1. Open File Explorer and press <kbd style="background: var(--retro-bg); padding: 2px 6px; border-radius: 3px;">Win + R</kbd><br/>
+                    2. Type: <code style="color: var(--retro-highlight);">%LOCALAPPDATA%\Amazon Games\Data\Games\Sql</code> and press Enter<br/>
+                    3. Upload <strong>BOTH</strong> files: <code style="color: var(--retro-highlight);">ProductDetails.sqlite</code> AND <code style="color: var(--retro-highlight);">GameProductInfo.sqlite</code><br/><br/>
                     <strong style="color: var(--retro-accent);">⚠️ Important:</strong> Both databases are required for a complete game library. ProductDetails contains some games, GameProductInfo contains others!
                 </p>
             </div>
@@ -197,7 +178,6 @@
     private string? errorMessage = null;
     private string? successMessage = null;
     private string? currentUserId = null;
-    private string? copyMessage = null;
     
     // ProductDetails file upload state
     private byte[]? productDetailsContent = null;
@@ -208,8 +188,6 @@
     private byte[]? productInfoContent = null;
     private string? productInfoFileName = null;
     private string? productInfoFileSize = null;
-    
-    private const string DatabaseFolderPath = @"%LOCALAPPDATA%\Amazon Games\Data\Games\Sql";
 
     protected override async Task OnInitializedAsync()
     {
@@ -449,47 +427,5 @@
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
-    }
-
-    private void OpenDatabaseFolder()
-    {
-        try
-        {
-            var expandedPath = Environment.ExpandEnvironmentVariables(DatabaseFolderPath);
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = expandedPath,
-                UseShellExecute = true
-            });
-            copyMessage = null;
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Could not open folder: {ex.Message}";
-        }
-    }
-
-    private async Task CopyPathToClipboard()
-    {
-        try
-        {
-            var expandedPath = Environment.ExpandEnvironmentVariables(DatabaseFolderPath);
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", expandedPath);
-            copyMessage = "Path copied to clipboard!";
-            errorMessage = null;
-            
-            // Clear the message after 3 seconds
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(3000);
-                copyMessage = null;
-                await InvokeAsync(StateHasChanged);
-            });
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Could not copy to clipboard: {ex.Message}";
-        }
     }
 }
