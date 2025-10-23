@@ -50,7 +50,10 @@ public class PlatformConnectionService : IPlatformConnectionService
             // Fetch games from the platform
             var games = await connector.FetchGamesAsync(userId);
             
-            // Save games to database
+            // Track games that need enrichment
+            var gamesToEnrich = new List<(string GameId, string Title)>();
+            
+            // Save games to database immediately (without waiting for enrichment)
             foreach (var game in games)
             {
                 // Check if game already exists for this user
@@ -59,35 +62,9 @@ public class PlatformConnectionService : IPlatformConnectionService
                                             g.ExternalId == game.Id && 
                                             g.Platform == game.Platform);
                 
-                // Enrich game metadata from RAWG API if description is missing
+                // Check if enrichment is needed
                 bool needsEnrichment = string.IsNullOrEmpty(game.Description) || 
                                       (existing != null && string.IsNullOrEmpty(existing.Description));
-                
-                if (needsEnrichment)
-                {
-                    _logger.LogInformation("🔍 Enriching metadata for: {GameTitle}", game.Title);
-                    try
-                    {
-                        var enriched = await _rawgApiClient.EnrichGameMetadataAsync(game);
-                        if (enriched)
-                        {
-                            _logger.LogInformation("✅ Successfully enriched {GameTitle} - Description: {DescLength} chars", 
-                                game.Title, game.Description?.Length ?? 0);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ Failed to enrich metadata for: {GameTitle}", game.Title);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error enriching metadata for {GameTitle}", game.Title);
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug("ℹ️ Game {GameTitle} already has description, skipping enrichment", game.Title);
-                }
                 
                 if (existing == null)
                 {
@@ -114,6 +91,11 @@ public class PlatformConnectionService : IPlatformConnectionService
                         game.Title, game.Description?.Length ?? 0, game.PlaytimeMinutes ?? 0);
                     
                     _context.UserGames.Add(userGame);
+                    
+                    if (needsEnrichment)
+                    {
+                        gamesToEnrich.Add((game.Id, game.Title));
+                    }
                 }
                 else
                 {
@@ -131,6 +113,11 @@ public class PlatformConnectionService : IPlatformConnectionService
                     
                     _logger.LogDebug("Updating game {Title}: Description={DescLen} chars, Playtime={Playtime} min", 
                         game.Title, game.Description?.Length ?? 0, game.PlaytimeMinutes ?? 0);
+                    
+                    if (needsEnrichment)
+                    {
+                        gamesToEnrich.Add((game.Id, game.Title));
+                    }
                 }
             }
             
@@ -157,9 +144,114 @@ public class PlatformConnectionService : IPlatformConnectionService
             }
             
             await _context.SaveChangesAsync();
+            
+            // Start background enrichment for games without descriptions
+            if (gamesToEnrich.Any())
+            {
+                _logger.LogInformation("📝 Queued {Count} games for background metadata enrichment", gamesToEnrich.Count);
+                
+                // Fire and forget - enrich in background
+                _ = Task.Run(async () => await EnrichGamesInBackgroundAsync(userId, platform, gamesToEnrich));
+            }
         }
         
         return success;
+    }
+    
+    /// <summary>
+    /// Enriches games with RAWG metadata in the background
+    /// </summary>
+    private async Task EnrichGamesInBackgroundAsync(string userId, Platform platform, List<(string GameId, string Title)> gamesToEnrich)
+    {
+        try
+        {
+            _logger.LogInformation("🔄 Starting background enrichment for {Count} games", gamesToEnrich.Count);
+            
+            var enrichedCount = 0;
+            var failedCount = 0;
+            
+            foreach (var (gameId, title) in gamesToEnrich)
+            {
+                try
+                {
+                    // Fetch the game from database
+                    var userGame = await _context.UserGames
+                        .FirstOrDefaultAsync(g => g.UserId == userId && 
+                                                g.ExternalId == gameId && 
+                                                g.Platform == platform);
+                    
+                    if (userGame == null)
+                    {
+                        _logger.LogWarning("⚠️ Game not found for enrichment: {Title} (ID: {GameId})", title, gameId);
+                        failedCount++;
+                        continue;
+                    }
+                    
+                    // Skip if description was added while we were waiting
+                    if (!string.IsNullOrEmpty(userGame.Description))
+                    {
+                        _logger.LogDebug("ℹ️ Game {Title} already has description, skipping", title);
+                        continue;
+                    }
+                    
+                    // Create a temporary Game object for enrichment
+                    var tempGame = new Game
+                    {
+                        Id = userGame.ExternalId,
+                        Title = userGame.Title,
+                        Platform = userGame.Platform,
+                        Description = userGame.Description ?? string.Empty,
+                        Developer = userGame.Developer,
+                        Publisher = userGame.Publisher,
+                        ReleaseDate = userGame.ReleaseDate,
+                        Genres = string.IsNullOrEmpty(userGame.Genres) 
+                            ? new List<string>() 
+                            : userGame.Genres.Split(", ").ToList()
+                    };
+                    
+                    // Enrich with RAWG data
+                    _logger.LogDebug("🔍 Enriching metadata for: {GameTitle}", title);
+                    var enriched = await _rawgApiClient.EnrichGameMetadataAsync(tempGame);
+                    
+                    if (enriched)
+                    {
+                        // Update the database record
+                        userGame.Description = tempGame.Description;
+                        userGame.Developer = tempGame.Developer;
+                        userGame.Publisher = tempGame.Publisher;
+                        userGame.ReleaseDate = tempGame.ReleaseDate;
+                        userGame.Genres = tempGame.Genres.Any() ? string.Join(", ", tempGame.Genres) : null;
+                        userGame.UpdatedAt = DateTime.UtcNow;
+                        
+                        await _context.SaveChangesAsync();
+                        
+                        enrichedCount++;
+                        _logger.LogInformation("✅ Enriched {Title} - Description: {DescLength} chars", 
+                            title, tempGame.Description?.Length ?? 0);
+                    }
+                    else
+                    {
+                        failedCount++;
+                        _logger.LogWarning("⚠️ Failed to enrich: {Title}", title);
+                    }
+                    
+                    // Small delay to avoid rate limiting
+                    await Task.Delay(250);
+                }
+                catch (Exception ex)
+                {
+                    failedCount++;
+                    _logger.LogError(ex, "Error enriching {Title}", title);
+                }
+            }
+            
+            _logger.LogInformation("✅ Background enrichment complete: {Enriched} succeeded, {Failed} failed out of {Total} games", 
+                enrichedCount, failedCount, gamesToEnrich.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fatal error in background enrichment task");
+        }
     }
 
     public async Task DisconnectPlatformAsync(string userId, Platform platform)
