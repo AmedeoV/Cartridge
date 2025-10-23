@@ -36,69 +36,80 @@
     }
     else
     {
-        <div class="filter-section">
-            <div class="filter-title">🔍 Search Games</div>
-            <div style="position: relative; max-width: 600px;">
-                <input type="text" 
-                       class="search-input" 
-                       placeholder="Search by title, developer, publisher, or genre..."
-                       @bind="searchQuery"
-                       @bind:event="oninput"
-                       @onkeyup="ApplyFilters"
-                       style="width: 100%; padding: 12px 45px 12px 15px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 14px; border-radius: 4px;" />
-                @if (!string.IsNullOrWhiteSpace(searchQuery))
-                {
-                    <button @onclick="ClearSearch" 
-                            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--retro-warning); cursor: pointer; font-size: 20px; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
-                        ✕
-                    </button>
-                }
+        <div class="filter-section" style="margin-bottom: 20px;">
+            <div style="position: relative; max-width: 800px; margin: 0 auto;">
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none;">🔍</span>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search your games by title, developer, publisher, or genre..."
+                           @bind="searchQuery"
+                           @bind:event="oninput"
+                           @onkeyup="ApplyFilters"
+                           style="width: 100%; padding: 15px 45px 15px 45px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 16px; border-radius: 4px;" />
+                    @if (!string.IsNullOrWhiteSpace(searchQuery))
+                    {
+                        <button @onclick="ClearSearch" 
+                                style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--retro-warning); cursor: pointer; font-size: 20px; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                            ✕
+                        </button>
+                    }
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="btn-retro" @onclick="ToggleFilters" style="font-size: 12px; padding: 8px 16px;">
+                    @(showFilters ? "▲ Hide" : "▼ Show") Filters & Sort Options
+                </button>
             </div>
         </div>
 
-        <div class="filter-section">
-            <div class="filter-title">► Filter By Platform</div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn-retro @(selectedPlatform == null ? "btn-retro-secondary" : "")" 
-                        @onclick="() => FilterByPlatform(null)">
-                    All (@library.Games.Count)
-                </button>
-                @foreach (var platform in library.Games.Select(g => g.Platform).Distinct().OrderBy(p => p.ToString()))
-                {
-                    var count = library.Games.Count(g => g.Platform == platform);
-                    <button class="btn-retro @(selectedPlatform == platform ? "btn-retro-secondary" : "")" 
-                            @onclick="() => FilterByPlatform(platform)">
-                        @platform (@count)
+        @if (showFilters)
+        {
+            <div class="filter-section">
+                <div class="filter-title">► Filter By Platform</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-retro @(selectedPlatform == null ? "btn-retro-secondary" : "")" 
+                            @onclick="() => FilterByPlatform(null)">
+                        All (@library.Games.Count)
                     </button>
-                }
+                    @foreach (var platform in library.Games.Select(g => g.Platform).Distinct().OrderBy(p => p.ToString()))
+                    {
+                        var count = library.Games.Count(g => g.Platform == platform);
+                        <button class="btn-retro @(selectedPlatform == platform ? "btn-retro-secondary" : "")" 
+                                @onclick="() => FilterByPlatform(platform)">
+                            @platform (@count)
+                        </button>
+                    }
+                </div>
             </div>
-        </div>
 
-        <div class="filter-section" style="margin-top: 20px;">
-            <div class="filter-title">► Sort By</div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn-retro @(sortOption == SortOption.Title ? "btn-retro-secondary" : "")" 
-                        @onclick="() => ChangeSortOption(SortOption.Title)">
-                    📝 Title (A-Z)
-                </button>
-                <button class="btn-retro @(sortOption == SortOption.LastPlayed ? "btn-retro-secondary" : "")" 
-                        @onclick="() => ChangeSortOption(SortOption.LastPlayed)">
-                    🎮 Last Played
-                </button>
-                <button class="btn-retro @(sortOption == SortOption.MostPlayed ? "btn-retro-secondary" : "")" 
-                        @onclick="() => ChangeSortOption(SortOption.MostPlayed)">
-                    ⏱ Most Hours
-                </button>
-                <button class="btn-retro @(sortOption == SortOption.RecentlyAdded ? "btn-retro-secondary" : "")" 
-                        @onclick="() => ChangeSortOption(SortOption.RecentlyAdded)">
-                    ➕ Recently Added
-                </button>
-                <button class="btn-retro @(sortOption == SortOption.ReleaseDate ? "btn-retro-secondary" : "")" 
-                        @onclick="() => ChangeSortOption(SortOption.ReleaseDate)">
-                    📅 Release Date
-                </button>
+            <div class="filter-section" style="margin-top: 20px;">
+                <div class="filter-title">► Sort By</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-retro @(sortOption == SortOption.Title ? "btn-retro-secondary" : "")" 
+                            @onclick="() => ChangeSortOption(SortOption.Title)">
+                        📝 Title (A-Z)
+                    </button>
+                    <button class="btn-retro @(sortOption == SortOption.LastPlayed ? "btn-retro-secondary" : "")" 
+                            @onclick="() => ChangeSortOption(SortOption.LastPlayed)">
+                        🎮 Last Played
+                    </button>
+                    <button class="btn-retro @(sortOption == SortOption.MostPlayed ? "btn-retro-secondary" : "")" 
+                            @onclick="() => ChangeSortOption(SortOption.MostPlayed)">
+                        ⏱ Most Hours
+                    </button>
+                    <button class="btn-retro @(sortOption == SortOption.RecentlyAdded ? "btn-retro-secondary" : "")" 
+                            @onclick="() => ChangeSortOption(SortOption.RecentlyAdded)">
+                        ➕ Recently Added
+                    </button>
+                    <button class="btn-retro @(sortOption == SortOption.ReleaseDate ? "btn-retro-secondary" : "")" 
+                            @onclick="() => ChangeSortOption(SortOption.ReleaseDate)">
+                        📅 Release Date
+                    </button>
+                </div>
             </div>
-        </div>
+        }
 
         <div style="text-align: center; margin: 20px 0; color: var(--retro-text-dim);">
             Showing @filteredGames.Count of @library.Games.Count games
@@ -286,6 +297,7 @@
     private Game? selectedGame = null;
     private SortOption sortOption = SortOption.LastPlayed; // Default to last played
     private string searchQuery = string.Empty;
+    private bool showFilters = false;
 
     private enum SortOption
     {
@@ -386,6 +398,12 @@
     {
         searchQuery = string.Empty;
         ApplyFilters();
+    }
+
+    private void ToggleFilters()
+    {
+        showFilters = !showFilters;
+        StateHasChanged();
     }
 
     private void ChangeSortOption(SortOption option)
