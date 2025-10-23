@@ -54,6 +54,32 @@
             </div>
         </div>
 
+        <div class="filter-section" style="margin-top: 20px;">
+            <div class="filter-title">► Sort By</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-retro @(sortOption == SortOption.Title ? "btn-retro-secondary" : "")" 
+                        @onclick="() => ChangeSortOption(SortOption.Title)">
+                    📝 Title (A-Z)
+                </button>
+                <button class="btn-retro @(sortOption == SortOption.LastPlayed ? "btn-retro-secondary" : "")" 
+                        @onclick="() => ChangeSortOption(SortOption.LastPlayed)">
+                    🎮 Last Played
+                </button>
+                <button class="btn-retro @(sortOption == SortOption.MostPlayed ? "btn-retro-secondary" : "")" 
+                        @onclick="() => ChangeSortOption(SortOption.MostPlayed)">
+                    ⏱ Most Hours
+                </button>
+                <button class="btn-retro @(sortOption == SortOption.RecentlyAdded ? "btn-retro-secondary" : "")" 
+                        @onclick="() => ChangeSortOption(SortOption.RecentlyAdded)">
+                    ➕ Recently Added
+                </button>
+                <button class="btn-retro @(sortOption == SortOption.ReleaseDate ? "btn-retro-secondary" : "")" 
+                        @onclick="() => ChangeSortOption(SortOption.ReleaseDate)">
+                    📅 Release Date
+                </button>
+            </div>
+        </div>
+
         <div style="text-align: center; margin: 20px 0; color: var(--retro-text-dim);">
             Showing @filteredGames.Count of @library.Games.Count games
             @if (library.Games.Any(g => g.PlaytimeMinutes.HasValue && g.PlaytimeMinutes > 0))
@@ -66,7 +92,7 @@
         </div>
 
         <div class="game-grid">
-            @foreach (var game in filteredGames.OrderBy(g => g.Title))
+            @foreach (var game in GetSortedGames())
             {
                 <div class="game-card" @onclick="() => ShowGameDetails(game)" style="cursor: pointer;">
                     @if (!string.IsNullOrEmpty(game.CoverImageUrl))
@@ -238,6 +264,16 @@
     private string? currentUserId;
     private bool isSyncing = false;
     private Game? selectedGame = null;
+    private SortOption sortOption = SortOption.LastPlayed; // Default to last played
+
+    private enum SortOption
+    {
+        Title,
+        LastPlayed,
+        MostPlayed,
+        RecentlyAdded,
+        ReleaseDate
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -304,6 +340,33 @@
                 : library.Games.ToList();
             StateHasChanged();
         }
+    }
+
+    private void ChangeSortOption(SortOption option)
+    {
+        sortOption = option;
+        StateHasChanged();
+    }
+
+    private IEnumerable<Game> GetSortedGames()
+    {
+        return sortOption switch
+        {
+            SortOption.Title => filteredGames.OrderBy(g => g.Title),
+            SortOption.LastPlayed => filteredGames
+                .OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue)
+                .ThenByDescending(g => g.AddedToLibrary),
+            SortOption.MostPlayed => filteredGames
+                .OrderByDescending(g => g.PlaytimeMinutes ?? 0)
+                .ThenBy(g => g.Title),
+            SortOption.RecentlyAdded => filteredGames
+                .OrderByDescending(g => g.AddedToLibrary)
+                .ThenBy(g => g.Title),
+            SortOption.ReleaseDate => filteredGames
+                .OrderByDescending(g => g.ReleaseDate ?? DateTime.MinValue)
+                .ThenBy(g => g.Title),
+            _ => filteredGames.OrderBy(g => g.Title)
+        };
     }
 
     private string FormatPlaytime(int minutes)
