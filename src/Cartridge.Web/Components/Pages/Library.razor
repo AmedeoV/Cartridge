@@ -37,6 +37,26 @@
     else
     {
         <div class="filter-section">
+            <div class="filter-title">🔍 Search Games</div>
+            <div style="position: relative; max-width: 600px;">
+                <input type="text" 
+                       class="search-input" 
+                       placeholder="Search by title, developer, publisher, or genre..."
+                       @bind="searchQuery"
+                       @bind:event="oninput"
+                       @onkeyup="ApplyFilters"
+                       style="width: 100%; padding: 12px 45px 12px 15px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 14px; border-radius: 4px;" />
+                @if (!string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    <button @onclick="ClearSearch" 
+                            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--retro-warning); cursor: pointer; font-size: 20px; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                        ✕
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="filter-section">
             <div class="filter-title">► Filter By Platform</div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button class="btn-retro @(selectedPlatform == null ? "btn-retro-secondary" : "")" 
@@ -265,6 +285,7 @@
     private bool isSyncing = false;
     private Game? selectedGame = null;
     private SortOption sortOption = SortOption.LastPlayed; // Default to last played
+    private string searchQuery = string.Empty;
 
     private enum SortOption
     {
@@ -282,7 +303,7 @@
         if (!string.IsNullOrEmpty(currentUserId))
         {
             library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
-            filteredGames = library.Games.ToList();
+            ApplyFilters();
         }
     }
 
@@ -309,7 +330,7 @@
         {
             await GameLibraryService.SyncLibraryAsync(currentUserId);
             library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
-            FilterByPlatform(selectedPlatform); // Reapply current filter
+            ApplyFilters(); // Reapply current filters
         }
         finally
         {
@@ -333,13 +354,38 @@
     private void FilterByPlatform(Platform? platform)
     {
         selectedPlatform = platform;
-        if (library != null)
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (library == null) return;
+
+        // Start with all games or platform-filtered games
+        var games = selectedPlatform.HasValue
+            ? library.Games.Where(g => g.Platform == selectedPlatform.Value)
+            : library.Games;
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchQuery))
         {
-            filteredGames = platform.HasValue
-                ? library.Games.Where(g => g.Platform == platform.Value).ToList()
-                : library.Games.ToList();
-            StateHasChanged();
+            var searchLower = searchQuery.ToLower();
+            games = games.Where(g => 
+                g.Title.ToLower().Contains(searchLower) ||
+                (g.Developer?.ToLower().Contains(searchLower) ?? false) ||
+                (g.Publisher?.ToLower().Contains(searchLower) ?? false) ||
+                g.Genres.Any(genre => genre.ToLower().Contains(searchLower))
+            );
         }
+
+        filteredGames = games.ToList();
+        StateHasChanged();
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+        ApplyFilters();
     }
 
     private void ChangeSortOption(SortOption option)
