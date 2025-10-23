@@ -465,11 +465,12 @@
                             Select Platform *
                         </label>
                         <select @bind="selectedPlatformForNewGame" 
+                                class="platform-select"
                                 style="width: 100%; padding: 12px; background-color: rgba(0, 0, 0, 0.4); border: 2px solid var(--retro-border); color: var(--retro-text); font-family: 'Courier New', monospace; font-size: 16px; border-radius: 4px;">
-                            <option value="">-- Select a Platform --</option>
+                            <option value="" style="background-color: #0a1628; color: var(--retro-text);">-- Select a Platform --</option>
                             @foreach (Platform platform in Enum.GetValues(typeof(Platform)))
                             {
-                                <option value="@platform">@platform</option>
+                                <option value="@platform" style="background-color: #0a1628; color: var(--retro-text);">@platform</option>
                             }
                         </select>
                     </div>

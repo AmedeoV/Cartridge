@@ -760,6 +760,25 @@ h2, h3 {
     font-size: 11px;
 }
 
+/* Platform select dropdown styling */
+.platform-select {
+    cursor: pointer;
+}
+
+.platform-select option {
+    background-color: var(--retro-bg-lighter);
+    color: var(--retro-text);
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+}
+
+.platform-select option:hover,
+.platform-select option:focus,
+.platform-select option:checked {
+    background-color: var(--retro-accent);
+    color: var(--retro-bg);
+}
+
 @media (max-width: 768px) {
     .modal-content {
         width: 95%;
