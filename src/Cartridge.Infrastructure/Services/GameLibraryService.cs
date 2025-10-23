@@ -3,6 +3,7 @@ using Cartridge.Core.Models;
 using Cartridge.Infrastructure.Data;
 using Cartridge.Infrastructure.GameSearch;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Cartridge.Infrastructure.Services;
 
@@ -14,15 +15,18 @@ public class GameLibraryService : IGameLibraryService
     private readonly IEnumerable<IPlatformConnector> _platformConnectors;
     private readonly ApplicationDbContext _context;
     private readonly RawgApiClient _rawgApiClient;
+    private readonly ILogger<GameLibraryService> _logger;
 
     public GameLibraryService(
         IEnumerable<IPlatformConnector> platformConnectors,
         ApplicationDbContext context,
-        RawgApiClient rawgApiClient)
+        RawgApiClient rawgApiClient,
+        ILogger<GameLibraryService> logger)
     {
         _platformConnectors = platformConnectors;
         _context = context;
         _rawgApiClient = rawgApiClient;
+        _logger = logger;
     }
 
     public async Task<UserLibrary> GetUserLibraryAsync(string userId)
@@ -52,6 +56,7 @@ public class GameLibraryService : IGameLibraryService
             ReleaseDate = ug.ReleaseDate,
             Developer = ug.Developer,
             Publisher = ug.Publisher,
+            IsManuallyAdded = ug.IsManuallyAdded,
             Genres = string.IsNullOrEmpty(ug.Genres) 
                 ? new List<string>() 
                 : ug.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
@@ -100,6 +105,7 @@ public class GameLibraryService : IGameLibraryService
             ReleaseDate = ug.ReleaseDate,
             Developer = ug.Developer,
             Publisher = ug.Publisher,
+            IsManuallyAdded = ug.IsManuallyAdded,
             Genres = string.IsNullOrEmpty(ug.Genres) 
                 ? new List<string>() 
                 : ug.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
@@ -127,6 +133,7 @@ public class GameLibraryService : IGameLibraryService
             ReleaseDate = userGame.ReleaseDate,
             Developer = userGame.Developer,
             Publisher = userGame.Publisher,
+            IsManuallyAdded = userGame.IsManuallyAdded,
             Genres = string.IsNullOrEmpty(userGame.Genres) 
                 ? new List<string>() 
                 : userGame.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
@@ -154,6 +161,30 @@ public class GameLibraryService : IGameLibraryService
                         .FirstOrDefaultAsync(g => g.UserId == userId && 
                                                 g.ExternalId == game.Id && 
                                                 g.Platform == game.Platform);
+                    
+                    // Enrich game metadata from RAWG API if description is missing
+                    // Check both new games and existing games without descriptions
+                    bool needsEnrichment = string.IsNullOrEmpty(game.Description) || 
+                                          (existing != null && string.IsNullOrEmpty(existing.Description));
+                    
+                    if (needsEnrichment)
+                    {
+                        _logger.LogInformation("🔍 Enriching metadata for: {GameTitle}", game.Title);
+                        var enriched = await _rawgApiClient.EnrichGameMetadataAsync(game);
+                        if (enriched)
+                        {
+                            _logger.LogInformation("✅ Successfully enriched {GameTitle} - Description: {DescLength} chars", 
+                                game.Title, game.Description?.Length ?? 0);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ Failed to enrich metadata for: {GameTitle}", game.Title);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogDebug("ℹ️ Game {GameTitle} already has description, skipping enrichment", game.Title);
+                    }
                     
                     if (existing == null)
                     {
@@ -184,11 +215,18 @@ public class GameLibraryService : IGameLibraryService
                         existing.PlaytimeMinutes = game.PlaytimeMinutes;
                         existing.LastPlayed = game.LastPlayed;
                         existing.UpdatedAt = DateTime.UtcNow;
-                        existing.Description = game.Description;
-                        existing.ReleaseDate = game.ReleaseDate;
-                        existing.Developer = game.Developer;
-                        existing.Publisher = game.Publisher;
-                        existing.Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null;
+                        
+                        // Only update metadata if not already set (preserve existing data)
+                        if (string.IsNullOrEmpty(existing.Description))
+                            existing.Description = game.Description;
+                        if (!existing.ReleaseDate.HasValue)
+                            existing.ReleaseDate = game.ReleaseDate;
+                        if (string.IsNullOrEmpty(existing.Developer))
+                            existing.Developer = game.Developer;
+                        if (string.IsNullOrEmpty(existing.Publisher))
+                            existing.Publisher = game.Publisher;
+                        if (string.IsNullOrEmpty(existing.Genres))
+                            existing.Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null;
                     }
                 }
                 
@@ -223,6 +261,7 @@ public class GameLibraryService : IGameLibraryService
                 ReleaseDate = existing.ReleaseDate,
                 Developer = existing.Developer,
                 Publisher = existing.Publisher,
+                IsManuallyAdded = existing.IsManuallyAdded,
                 Genres = string.IsNullOrEmpty(existing.Genres) 
                     ? new List<string>() 
                     : existing.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
@@ -263,6 +302,7 @@ public class GameLibraryService : IGameLibraryService
             ReleaseDate = userGame.ReleaseDate,
             Developer = userGame.Developer,
             Publisher = userGame.Publisher,
+            IsManuallyAdded = userGame.IsManuallyAdded,
             Genres = string.IsNullOrEmpty(userGame.Genres) 
                 ? new List<string>() 
                 : userGame.Genres.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(g => g.Trim()).ToList()
@@ -272,5 +312,29 @@ public class GameLibraryService : IGameLibraryService
     public async Task<List<Game>> SearchGamesAsync(string searchQuery)
     {
         return await _rawgApiClient.SearchGamesAsync(searchQuery);
+    }
+
+    public async Task<bool> RemoveManualGameAsync(string userId, string gameId)
+    {
+        var userGame = await _context.UserGames
+            .FirstOrDefaultAsync(g => (g.Id == gameId || g.ExternalId == gameId) && g.UserId == userId);
+
+        if (userGame == null)
+        {
+            _logger.LogWarning("❌ Game {GameId} not found for user {UserId}", gameId, userId);
+            return false;
+        }
+
+        if (!userGame.IsManuallyAdded)
+        {
+            _logger.LogWarning("⚠️ Cannot delete game {GameTitle} - it was not manually added", userGame.Title);
+            return false;
+        }
+
+        _logger.LogInformation("🗑️ Removing manually added game: {GameTitle}", userGame.Title);
+        _context.UserGames.Remove(userGame);
+        await _context.SaveChangesAsync();
+        
+        return true;
     }
 }

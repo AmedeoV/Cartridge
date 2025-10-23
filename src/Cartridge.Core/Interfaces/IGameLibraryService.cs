@@ -13,4 +13,5 @@ public interface IGameLibraryService
     Task SyncLibraryAsync(string userId);
     Task<Game> AddManualGameAsync(string userId, Game game);
     Task<List<Game>> SearchGamesAsync(string searchQuery);
+    Task<bool> RemoveManualGameAsync(string userId, string gameId);
 }

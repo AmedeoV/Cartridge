@@ -17,4 +17,5 @@ public class Game
     public List<string> Genres { get; set; } = new();
     public string? Developer { get; set; }
     public string? Publisher { get; set; }
+    public bool IsManuallyAdded { get; set; }
 }

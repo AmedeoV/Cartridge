@@ -201,8 +201,26 @@
         <div class="modal-overlay" @onclick="CloseGameDetails">
             <div class="modal-content" @onclick:stopPropagation="true">
                 <div class="modal-header">
-                    <h3>@selectedGame.Title</h3>
-                    <button class="modal-close" @onclick="CloseGameDetails">✕</button>
+                    <h3 style="flex: 1;">@selectedGame.Title</h3>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        @if (selectedGame.IsManuallyAdded)
+                        {
+                            <button class="btn-retro" 
+                                    style="background-color: var(--retro-warning); border-color: var(--retro-warning); padding: 8px 16px; font-size: 14px;"
+                                    @onclick="() => DeleteGame(selectedGame.Id)"
+                                    disabled="@isDeletingGame">
+                                @if (isDeletingGame)
+                                {
+                                    <span>⟳ Deleting...</span>
+                                }
+                                else
+                                {
+                                    <span>🗑️ Delete</span>
+                                }
+                            </button>
+                        }
+                        <button class="modal-close" @onclick="CloseGameDetails">✕</button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(selectedGame.CoverImageUrl))
@@ -224,7 +242,25 @@
                     {
                         <div style="margin: 15px 0; padding: 12px; background-color: rgba(0, 0, 0, 0.3); border-left: 4px solid var(--retro-accent); line-height: 1.5;">
                             <strong style="color: var(--retro-accent);">Description:</strong><br/>
-                            @selectedGame.Description
+                            @if (selectedGame.Description.Length > 300 && !showFullDescription)
+                            {
+                                <span>@selectedGame.Description.Substring(0, 300)...</span>
+                                <button @onclick="ToggleDescription" 
+                                        style="background: none; border: none; color: var(--retro-accent); cursor: pointer; text-decoration: underline; padding: 0; margin-left: 5px; font-family: 'Courier New', monospace;">
+                                    Show more
+                                </button>
+                            }
+                            else
+                            {
+                                <span>@selectedGame.Description</span>
+                                @if (selectedGame.Description.Length > 300)
+                                {
+                                    <button @onclick="ToggleDescription" 
+                                            style="background: none; border: none; color: var(--retro-accent); cursor: pointer; text-decoration: underline; padding: 0; margin-left: 5px; font-family: 'Courier New', monospace;">
+                                        Show less
+                                    </button>
+                                }
+                            }
                         </div>
                     }
                     else
@@ -519,6 +555,8 @@
     private Platform? selectedPlatform;
     private string? currentUserId;
     private bool isSyncing = false;
+    private bool isDeletingGame = false;
+    private bool showFullDescription = false;
     private Game? selectedGame = null;
     private SortOption sortOption = SortOption.LastPlayed; // Default to last played
     private string searchQuery = string.Empty;
@@ -589,13 +627,54 @@
     private void ShowGameDetails(Game game)
     {
         selectedGame = game;
+        showFullDescription = false; // Reset when showing new game
         StateHasChanged();
     }
 
     private void CloseGameDetails()
     {
         selectedGame = null;
+        showFullDescription = false;
         StateHasChanged();
+    }
+
+    private void ToggleDescription()
+    {
+        showFullDescription = !showFullDescription;
+        StateHasChanged();
+    }
+
+    private async Task DeleteGame(string gameId)
+    {
+        if (string.IsNullOrEmpty(currentUserId) || isDeletingGame)
+            return;
+
+        isDeletingGame = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await GameLibraryService.RemoveManualGameAsync(currentUserId, gameId);
+            
+            if (result)
+            {
+                // Close the modal
+                selectedGame = null;
+                
+                // Refresh the library
+                library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
+                ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting game: {ex.Message}");
+        }
+        finally
+        {
+            isDeletingGame = false;
+            StateHasChanged();
+        }
     }
 
     private void FilterByPlatform(Platform? platform)
