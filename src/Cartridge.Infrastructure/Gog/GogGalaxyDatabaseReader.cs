@@ -660,12 +660,9 @@ public class GogGalaxyDatabaseReader
         if (metadata.ValueKind != JsonValueKind.Object)
             return;
 
-        // Description
-        if (metadata.TryGetProperty("description", out var descProp) && descProp.ValueKind == JsonValueKind.String)
-        {
-            game.Description = descProp.GetString();
-            _logger.LogDebug("Set description for {Title}: {Length} chars", game.Title, game.Description?.Length ?? 0);
-        }
+        // Note: Descriptions should come from RAWG API, not GOG metadata
+        // This method only handles technical metadata that GOG stores
+        
         // Release date
         if (metadata.TryGetProperty("releaseDate", out var releaseDateProp))
         {

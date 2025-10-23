@@ -1,6 +1,7 @@
 using Cartridge.Core.Interfaces;
 using Cartridge.Core.Models;
 using Cartridge.Infrastructure.Data;
+using Cartridge.Infrastructure.GameSearch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -22,15 +23,18 @@ public class PlatformConnectionService : IPlatformConnectionService
     private readonly IEnumerable<IPlatformConnector> _connectors;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<PlatformConnectionService> _logger;
+    private readonly RawgApiClient _rawgApiClient;
 
     public PlatformConnectionService(
         IEnumerable<IPlatformConnector> connectors,
         ApplicationDbContext context,
-        ILogger<PlatformConnectionService> logger)
+        ILogger<PlatformConnectionService> logger,
+        RawgApiClient rawgApiClient)
     {
         _connectors = connectors;
         _context = context;
         _logger = logger;
+        _rawgApiClient = rawgApiClient;
     }
 
     public async Task<bool> ConnectPlatformAsync(string userId, Platform platform, string credentials)
@@ -54,6 +58,36 @@ public class PlatformConnectionService : IPlatformConnectionService
                     .FirstOrDefaultAsync(g => g.UserId == userId && 
                                             g.ExternalId == game.Id && 
                                             g.Platform == game.Platform);
+                
+                // Enrich game metadata from RAWG API if description is missing
+                bool needsEnrichment = string.IsNullOrEmpty(game.Description) || 
+                                      (existing != null && string.IsNullOrEmpty(existing.Description));
+                
+                if (needsEnrichment)
+                {
+                    _logger.LogInformation("🔍 Enriching metadata for: {GameTitle}", game.Title);
+                    try
+                    {
+                        var enriched = await _rawgApiClient.EnrichGameMetadataAsync(game);
+                        if (enriched)
+                        {
+                            _logger.LogInformation("✅ Successfully enriched {GameTitle} - Description: {DescLength} chars", 
+                                game.Title, game.Description?.Length ?? 0);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ Failed to enrich metadata for: {GameTitle}", game.Title);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error enriching metadata for {GameTitle}", game.Title);
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("ℹ️ Game {GameTitle} already has description, skipping enrichment", game.Title);
+                }
                 
                 if (existing == null)
                 {
