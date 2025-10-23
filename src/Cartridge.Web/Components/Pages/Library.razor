@@ -92,17 +92,10 @@
                             <span class="platform-badge">@game.Platform</span>
                         </div>
 
-                        @if (!string.IsNullOrEmpty(game.Developer))
-                        {
-                            <div class="game-card-info">
-                                <span style="color: var(--retro-text-dim);">👨‍💻 Dev:</span> @game.Developer
-                            </div>
-                        }
-
                         @if (!string.IsNullOrEmpty(game.Publisher))
                         {
                             <div class="game-card-info">
-                                <span style="color: var(--retro-text-dim);">📦 Pub:</span> @game.Publisher
+                                <span style="color: var(--retro-text-dim);">📦</span> @game.Publisher
                             </div>
                         }
 
@@ -126,29 +119,6 @@
                                 🎮 Last: @FormatLastPlayed(game.LastPlayed.Value)
                             </div>
                         }
-
-                        @if (game.Genres.Any())
-                        {
-                            <div style="margin-top: 10px;">
-                                @foreach (var genre in game.Genres.Take(3))
-                                {
-                                    <span style="display: inline-block; padding: 2px 6px; margin: 2px; border: 1px solid var(--retro-text-dim); color: var(--retro-text-dim); font-size: 10px;">
-                                        @genre
-                                    </span>
-                                }
-                            </div>
-                        }
-
-                        @if (!string.IsNullOrEmpty(game.Description))
-                        {
-                            <div class="game-description">
-                                @(game.Description.Length > 120 ? game.Description.Substring(0, 120) + "..." : game.Description)
-                            </div>
-                        }
-
-                        <div class="game-card-info" style="margin-top: 10px; color: var(--retro-text-dim); font-size: 11px;">
-                            <span style="color: var(--retro-text-dim);">➕ Added:</span> @game.AddedToLibrary.ToString("MMM dd, yyyy")
-                        </div>
                     </div>
                 </div>
             }
