@@ -145,6 +145,13 @@ public class GogGalaxyDatabaseReader
 
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
+            
+            // Ensure WAL mode is enabled for reading latest data
+            using (var pragmaCommand = connection.CreateCommand())
+            {
+                pragmaCommand.CommandText = "PRAGMA journal_mode=WAL;";
+                await pragmaCommand.ExecuteNonQueryAsync();
+            }
 
             var query = @"
                 SELECT DISTINCT
@@ -163,8 +170,17 @@ public class GogGalaxyDatabaseReader
 
             using var command = new SqliteCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
+            
+            _logger.LogInformation("📊 Starting to read games from GOG Galaxy database...");
+            int rowCount = 0;
             while (await reader.ReadAsync())
             {
+                rowCount++;
+                if (rowCount == 1)
+                {
+                    _logger.LogInformation("✅ First row received from database");
+                }
+
                 var releaseKey = reader.GetString(0);
                 var title = reader.IsDBNull(1) ? null : reader.GetString(1);
                 var metadataJson = reader.IsDBNull(2) ? null : reader.GetString(2);
@@ -295,6 +311,19 @@ public class GogGalaxyDatabaseReader
                 {
                     gameTitle = releaseKey;
                 }
+                
+                // Debug log for Ubisoft games - AFTER title parsing
+                if (rowCount <= 50) // Log first 50 games to see the pattern
+                {
+                    _logger.LogInformation("📋 Row {RowNum}: Key={ReleaseKey}, Title={Title}, Platform={Platform}", 
+                        rowCount, releaseKey, gameTitle, platform);
+                }
+                
+                if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                {
+                    _logger.LogInformation("🎮 Ubisoft game detected - Key: {ReleaseKey}, Title: {Title}, Platform: {Platform}", 
+                        releaseKey, gameTitle, platform);
+                }
 
                 // Skip Amazon Prime Gaming games and Game Overlay
                 if (gameTitle.Contains("Amazon Prime", StringComparison.OrdinalIgnoreCase) ||
@@ -306,6 +335,7 @@ public class GogGalaxyDatabaseReader
                 }
 
                 // Filter out games with null, empty, or releaseKey-like titles
+                // Only skip if the title is exactly the releaseKey (indicating parsing failure)
                 bool isReleaseKeyTitle = false;
                 if (string.IsNullOrWhiteSpace(gameTitle))
                 {
@@ -314,10 +344,9 @@ public class GogGalaxyDatabaseReader
                 else
                 {
                     var lowerTitle = gameTitle.Trim().ToLower();
-                    if (lowerTitle == releaseKey.ToLower() ||
-                        lowerTitle.StartsWith("epic_") ||
-                        lowerTitle.StartsWith("uplay_") ||
-                        lowerTitle.StartsWith("ubisoft_"))
+                    var lowerReleaseKey = releaseKey.ToLower();
+                    // Only skip if title exactly matches the releaseKey
+                    if (lowerTitle == lowerReleaseKey)
                     {
                         isReleaseKeyTitle = true;
                     }
@@ -330,12 +359,21 @@ public class GogGalaxyDatabaseReader
 
                 // Extract cover image URL
                 string? coverImageUrl = null;
-                if (!reader.IsDBNull(3))
+                bool hasImageData = !reader.IsDBNull(3);
+                if (hasImageData)
                 {
                     try
                     {
                         var imagesJsonInner = reader.GetString(3);
                         var images = JsonSerializer.Deserialize<JsonElement>(imagesJsonInner);
+                        
+                        // Debug log for Ubisoft games - show raw image JSON
+                        if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                        {
+                            _logger.LogInformation("🖼️ Ubisoft image data for {Title}: {ImageJson}", 
+                                gameTitle, imagesJsonInner.Length > 200 ? imagesJsonInner.Substring(0, 200) + "..." : imagesJsonInner);
+                        }
+                        
                         if (images.TryGetProperty("verticalCover", out var verticalCover) &&
                             verticalCover.ValueKind == JsonValueKind.String)
                         {
@@ -356,13 +394,33 @@ public class GogGalaxyDatabaseReader
                         {
                             _logger.LogDebug("Extracted image from GamePieces for {Title}: {Url}",
                                 gameTitle, coverImageUrl);
+                            
+                            // Extra log for Ubisoft games
+                            if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                            {
+                                _logger.LogInformation("✅ Ubisoft image URL extracted for {Title}: {Url}", 
+                                    gameTitle, coverImageUrl);
+                            }
+                        }
+                        else if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                        {
+                            _logger.LogWarning("❌ No image URL extracted for Ubisoft game {Title} despite having image data", gameTitle);
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogDebug(ex, "Error parsing GamePieces images JSON for {Title}",
                             gameTitle);
+                        
+                        if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                        {
+                            _logger.LogError(ex, "Error parsing images for Ubisoft game {Title}", gameTitle);
+                        }
                     }
+                }
+                else if (releaseKey.ToLower().Contains("uplay") || releaseKey.ToLower().Contains("ubisoft"))
+                {
+                    _logger.LogWarning("⚠️ No image data in database for Ubisoft game {Title}", gameTitle);
                 }
 
                 // Fallback to GOG CDN for GOG games, or leave null for others
@@ -406,8 +464,8 @@ public class GogGalaxyDatabaseReader
 
                 games.Add(game);
             }
-
-            _logger.LogInformation("Successfully read {Count} games from GOG Galaxy database", games.Count);
+            
+            _logger.LogInformation("📊 Finished reading {TotalRows} rows from database, found {GameCount} valid games", rowCount, games.Count);
         }
         catch (Exception ex)
         {
@@ -417,9 +475,6 @@ public class GogGalaxyDatabaseReader
         return games;
     }
 
-    /// <summary>
-    /// Parse GOG game data from JSON (legacy method for fallback)
-    /// </summary>
     private Game? ParseGogGameData(string releaseKey, JsonElement gameData)
     {
         try
@@ -545,6 +600,13 @@ public class GogGalaxyDatabaseReader
 
             using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync();
+            
+            // Ensure WAL mode is enabled for reading latest data
+            using (var pragmaCommand = connection.CreateCommand())
+            {
+                pragmaCommand.CommandText = "PRAGMA journal_mode=WAL;";
+                await pragmaCommand.ExecuteNonQueryAsync();
+            }
 
             // Query for playtime data from GameTimes table
             var query = @"

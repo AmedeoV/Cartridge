@@ -136,6 +136,18 @@ public class PlatformConnectionService : IPlatformConnectionService
             await connector.DisconnectAsync(userId);
         }
         
+        // Delete all games from this platform for this user
+        var gamesToDelete = await _context.UserGames
+            .Where(g => g.UserId == userId && g.Platform == platform)
+            .ToListAsync();
+        
+        if (gamesToDelete.Any())
+        {
+            _context.UserGames.RemoveRange(gamesToDelete);
+            _logger.LogInformation("Removing {Count} games from {Platform} for user {UserId}", 
+                gamesToDelete.Count, platform, userId);
+        }
+        
         // Update platform connection in database
         var connection = await _context.PlatformConnections
             .FirstOrDefaultAsync(c => c.UserId == userId && c.Platform == platform);
@@ -143,6 +155,13 @@ public class PlatformConnectionService : IPlatformConnectionService
         if (connection != null)
         {
             connection.IsConnected = false;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Disconnected {Platform} for user {UserId} and removed associated games", 
+                platform, userId);
+        }
+        else
+        {
+            // Still save changes to remove games even if no connection record exists
             await _context.SaveChangesAsync();
         }
     }

@@ -186,11 +186,11 @@ public class GogConnector : IPlatformConnector
             }
         }
 
-        // If no games found from either source, show mock data
+        // Don't return mock data - return actual empty list if no games found
+        // This helps identify real issues instead of masking them with fake data
         if (games.Count == 0)
         {
-            _logger.LogInformation("No GOG games found, returning mock data");
-            games = GetMockGogGames();
+            _logger.LogWarning("No GOG games found for user {UserId}. If you have an uploaded database, try reconnecting with the local database path instead.", userId);
         }
         
         _logger.LogInformation("Total {Count} GOG games for user {UserId}", games.Count, userId);

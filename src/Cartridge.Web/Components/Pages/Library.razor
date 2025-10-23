@@ -133,17 +133,21 @@
                 <div class="game-card" @onclick="() => ShowGameDetails(game)" style="cursor: pointer;">
                     @if (!string.IsNullOrEmpty(game.CoverImageUrl))
                     {
-                        <img src="@game.CoverImageUrl" 
-                             alt="@game.Title" 
-                             class="game-card-image"
-                             onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                        <div class="image-placeholder" style="display: none; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
-                            🎮
+                        <div style="position: relative; width: 100%; height: 280px;">
+                            <img src="@game.CoverImageUrl" 
+                                 alt="@game.Title" 
+                                 class="game-card-image"
+                                 loading="lazy"
+                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                            <div class="image-placeholder" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
+                                🎮
+                            </div>
                         </div>
                     }
                     else
                     {
-                        <div class="image-placeholder" style="display: flex; width: 100%; height: 200px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
+                        <div class="image-placeholder" style="display: flex; width: 100%; height: 280px; background: linear-gradient(135deg, #0a1628 0%, #152840 100%); align-items: center; justify-content: center; font-size: 48px; border-bottom: 4px solid var(--retro-border);">
                             🎮
                         </div>
                     }
