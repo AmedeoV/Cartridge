@@ -82,6 +82,26 @@
             </p>
             
             <div style="margin-bottom: 15px;">
+                <!-- Copy Path Button -->
+                <div style="margin-bottom: 20px;">
+                    <button type="button" class="btn-retro btn-retro-secondary" @onclick="CopyAmazonPathToClipboard" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        @if (amazonPathCopied)
+                        {
+                            <span>✅ Path Copied! Now paste it in the file browser address bar</span>
+                        }
+                        else
+                        {
+                            <span>📋 Copy Amazon Games Database Path (%LOCALAPPDATA%\Amazon Games\Data\Games\Sql)</span>
+                        }
+                    </button>
+                    @if (amazonPathCopied)
+                    {
+                        <p style="color: var(--retro-primary); font-size: 12px; margin-top: 8px; text-align: center;">
+                            💡 Tip: Open File Explorer, press Win+R, paste the path and press Enter to navigate directly!
+                        </p>
+                    }
+                </div>
+                
                 <!-- ProductDetails Upload -->
                 <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; margin-top: 20px; text-transform: uppercase;">
                     📁 1. Upload ProductDetails.sqlite
@@ -135,10 +155,11 @@
             
             <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-top: 20px;">
                 <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0; line-height: 1.6;">
-                    <strong style="color: var(--retro-primary);">💡 How to find your databases:</strong><br/>
-                    1. Open File Explorer and press <kbd style="background: var(--retro-bg); padding: 2px 6px; border-radius: 3px;">Win + R</kbd><br/>
-                    2. Type: <code style="color: var(--retro-highlight);">%LOCALAPPDATA%\Amazon Games\Data\Games\Sql</code> and press Enter<br/>
-                    3. Upload <strong>BOTH</strong> files: <code style="color: var(--retro-highlight);">ProductDetails.sqlite</code> AND <code style="color: var(--retro-highlight);">GameProductInfo.sqlite</code><br/><br/>
+                    <strong style="color: var(--retro-primary);">💡 Quick Access Instructions:</strong><br/>
+                    1. Click the "Copy Amazon Games Database Path" button above ☝️<br/>
+                    2. Open File Explorer and press <kbd style="background: var(--retro-bg); padding: 2px 6px; border-radius: 3px;">Win + R</kbd><br/>
+                    3. Paste (Ctrl+V) and press Enter to navigate directly<br/>
+                    4. Upload <strong>BOTH</strong> files: <code style="color: var(--retro-highlight);">ProductDetails.sqlite</code> AND <code style="color: var(--retro-highlight);">GameProductInfo.sqlite</code><br/><br/>
                     <strong style="color: var(--retro-accent);">⚠️ Important:</strong> Both databases are required for a complete game library. ProductDetails contains some games, GameProductInfo contains others!
                 </p>
             </div>
@@ -178,6 +199,7 @@
     private string? errorMessage = null;
     private string? successMessage = null;
     private string? currentUserId = null;
+    private bool amazonPathCopied = false;
     
     // ProductDetails file upload state
     private byte[]? productDetailsContent = null;
@@ -188,6 +210,8 @@
     private byte[]? productInfoContent = null;
     private string? productInfoFileName = null;
     private string? productInfoFileSize = null;
+    
+    private const string AmazonGamesPath = @"%LOCALAPPDATA%\Amazon Games\Data\Games\Sql";
 
     protected override async Task OnInitializedAsync()
     {
@@ -202,6 +226,29 @@
             {
                 isConnected = await ConnectionService.IsPlatformConnectedAsync(currentUserId, Platform.AmazonGames);
             }
+        }
+    }
+
+    private async Task CopyAmazonPathToClipboard()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", AmazonGamesPath);
+            amazonPathCopied = true;
+            StateHasChanged();
+            
+            // Reset the "copied" message after 5 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                amazonPathCopied = false;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error copying to clipboard: {ex.Message}");
+            errorMessage = "Unable to copy to clipboard. Please copy manually: " + AmazonGamesPath;
         }
     }
 

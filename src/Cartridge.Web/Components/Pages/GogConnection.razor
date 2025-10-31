@@ -8,12 +8,14 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@using Microsoft.JSInterop
 @layout RetroLayout
 @attribute [Authorize]
 @inject IPlatformConnectionService ConnectionService
 @inject NavigationManager Navigation
 @inject GogGalaxyDatabaseReader GalaxyReader
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
 
 <PageTitle>Connect GOG - CARTRIDGE</PageTitle>
 
@@ -82,6 +84,27 @@
                 <label style="display: block; color: var(--retro-primary); font-size: 14px; margin-bottom: 10px; text-transform: uppercase;">
                     📁 Select galaxy-2.0.db file
                 </label>
+                
+                <!-- Copy Path Button -->
+                <div style="margin-bottom: 15px;">
+                    <button type="button" class="btn-retro btn-retro-secondary" @onclick="CopyPathToClipboard" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        @if (pathCopied)
+                        {
+                            <span>✅ Path Copied! Now paste it in the file browser address bar</span>
+                        }
+                        else
+                        {
+                            <span>📋 Copy GOG Galaxy Storage Path (C:\ProgramData\GOG.com\Galaxy\storage)</span>
+                        }
+                    </button>
+                    @if (pathCopied)
+                    {
+                        <p style="color: var(--retro-primary); font-size: 12px; margin-top: 8px; text-align: center;">
+                            💡 Tip: Open File Explorer, press Ctrl+L to focus the address bar, then Ctrl+V to paste!
+                        </p>
+                    }
+                </div>
+                
                 <InputFile OnChange="HandleDatabaseFileUpload" accept=".db" 
                     style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
                 
@@ -110,11 +133,12 @@
             
             <div style="background: var(--retro-bg-secondary); padding: 15px; border-radius: 4px; margin-top: 20px;">
                 <p style="color: var(--retro-text-dim); font-size: 13px; margin: 0; line-height: 1.6;">
-                    <strong style="color: var(--retro-primary);">💡 How to find your database:</strong><br/>
-                    1. Open File Explorer<br/>
-                    2. Copy and paste this path into the address bar: <code style="color: var(--retro-highlight);">C:\ProgramData\GOG.com\Galaxy\storage</code><br/>
-                    3. Look for the file named <code style="color: var(--retro-highlight);">galaxy-2.0.db</code><br/>
-                    4. Upload it using the file picker above
+                    <strong style="color: var(--retro-primary);">💡 Quick Access Instructions:</strong><br/>
+                    1. Click the "Copy GOG Galaxy Storage Path" button above ☝️<br/>
+                    2. Open File Explorer (Windows + E)<br/>
+                    3. Click on the address bar (or press Ctrl+L) and paste (Ctrl+V)<br/>
+                    4. Look for the file named <code style="color: var(--retro-highlight);">galaxy-2.0.db</code><br/>
+                    5. Upload it using the file picker above
                 </p>
             </div>
         </div>
@@ -204,11 +228,37 @@
     private string? uploadedFileSize;
     private byte[]? uploadedDatabaseContent;
     private string? currentUserId;
+    private bool pathCopied = false;
+    
+    private const string GogStoragePath = @"C:\ProgramData\GOG.com\Galaxy\storage";
 
     protected override async Task OnInitializedAsync()
     {
         await GetCurrentUserAsync();
         await CheckConnectionStatus();
+    }
+
+    private async Task CopyPathToClipboard()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GogStoragePath);
+            pathCopied = true;
+            StateHasChanged();
+            
+            // Reset the "copied" message after 5 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                pathCopied = false;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error copying to clipboard: {ex.Message}");
+            errorMessage = "Unable to copy to clipboard. Please copy manually: " + GogStoragePath;
+        }
     }
 
     private async Task GetCurrentUserAsync()
