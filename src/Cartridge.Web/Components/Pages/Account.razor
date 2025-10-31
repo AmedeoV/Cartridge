@@ -6,11 +6,13 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
+@using Cartridge.Infrastructure.Services
 @layout RetroLayout
 @attribute [Authorize]
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
+@inject IAuthService AuthService
 @inject NavigationManager Navigation
 
 <PageTitle>Account Settings - CARTRIDGE</PageTitle>
@@ -57,6 +59,85 @@
                             @currentUser.LastLoginAt.Value.ToString("MMMM dd, yyyy HH:mm")
                         </div>
                     </div>
+                }
+            </div>
+        </div>
+
+        <div class="filter-section" style="margin-bottom: 30px;">
+            <h3 class="filter-title">🔐 Security</h3>
+            <div style="padding: 20px;">
+                @if (twoFactorStatus == null)
+                {
+                    <div class="loading-spinner"></div>
+                }
+                else
+                {
+                    <div style="margin-bottom: 20px;">
+                        <label style="color: var(--retro-text-dim); font-size: 11px; display: block; margin-bottom: 10px;">TWO-FACTOR AUTHENTICATION:</label>
+                        <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); border-radius: 4px;">
+                            @if (twoFactorStatus.IsEnabled)
+                            {
+                                <span style="color: var(--retro-success); font-size: 14px; font-weight: bold;">✅ ENABLED</span>
+                                <button class="btn-retro btn-retro-secondary" style="font-size: 9px; padding: 8px 12px;" @onclick="DisableTwoFactor" disabled="@isProcessing2FA">
+                                    @if (isProcessing2FA)
+                                    {
+                                        <span>⏳ Processing...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>DISABLE</span>
+                                    }
+                                </button>
+                            }
+                            else
+                            {
+                                <span style="color: var(--retro-text-dim); font-size: 14px;">❌ DISABLED</span>
+                                <a href="/account/2fa-setup" class="btn-retro" style="font-size: 9px; padding: 8px 12px; text-decoration: none;">
+                                    ENABLE 2FA
+                                </a>
+                            }
+                        </div>
+                        
+                        @if (twoFactorStatus.IsEnabled)
+                        {
+                            <p style="color: var(--retro-text-dim); font-size: 9px; margin-top: 12px; line-height: 1.8;">
+                                Your account is protected with two-factor authentication. You'll need to enter a code from your authenticator app when signing in.
+                            </p>
+                            
+                            @if (twoFactorStatus.RecoveryCodesLeft > 0)
+                            {
+                                <p style="color: var(--retro-text-dim); font-size: 9px; margin-top: 8px;">
+                                    Recovery codes remaining: <strong style="color: var(--retro-text);">@twoFactorStatus.RecoveryCodesLeft</strong>
+                                </p>
+                            }
+                            else
+                            {
+                                <p style="color: var(--retro-warning); font-size: 9px; margin-top: 8px;">
+                                    ⚠️ You have no recovery codes remaining. Consider generating new ones.
+                                </p>
+                            }
+                        }
+                        else
+                        {
+                            <p style="color: var(--retro-text-dim); font-size: 9px; margin-top: 12px; line-height: 1.8;">
+                                Add an extra layer of security to your account by requiring a verification code when signing in.
+                            </p>
+                        }
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(securityMessage))
+                    {
+                        <div style="background: var(--retro-success); color: white; padding: 15px; margin-top: 15px; border: 3px solid darkgreen; font-size: 10px; line-height: 1.8;">
+                            ✅ @securityMessage
+                        </div>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(securityError))
+                    {
+                        <div style="background: var(--retro-error); color: white; padding: 15px; margin-top: 15px; border: 3px solid darkred; font-size: 10px; line-height: 1.8;">
+                            ⚠️ @securityError
+                        </div>
+                    }
                 }
             </div>
         </div>
@@ -138,21 +219,39 @@
 
 @code {
     private ApplicationUser? currentUser;
+    private TwoFactorStatusResponse? twoFactorStatus;
     private bool showDeleteConfirmation = false;
     private bool isDeleting = false;
+    private bool isProcessing2FA = false;
     private string deleteConfirmationText = "";
     private string? errorMessage;
+    private string? securityMessage;
+    private string? securityError;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
+        isLoading = true;
         try
         {
             await LoadUserAsync();
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user: {ex.Message}");
+        }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && currentUser != null)
+        {
+            await LoadTwoFactorStatusAsync();
+            StateHasChanged();
         }
     }
 
@@ -166,9 +265,70 @@
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!string.IsNullOrEmpty(userId))
             {
-                // Use Task.Run to avoid DbContext threading issues in Blazor Server
-                currentUser = await Task.Run(async () => await UserManager.FindByIdAsync(userId));
+                currentUser = await UserManager.FindByIdAsync(userId);
             }
+        }
+    }
+
+    private async Task LoadTwoFactorStatusAsync()
+    {
+        try
+        {
+            if (currentUser == null)
+                return;
+
+            var hasAuthenticator = await UserManager.GetAuthenticatorKeyAsync(currentUser);
+            var is2faEnabled = await UserManager.GetTwoFactorEnabledAsync(currentUser);
+            var recoveryCodesLeft = await UserManager.CountRecoveryCodesAsync(currentUser);
+
+            twoFactorStatus = new TwoFactorStatusResponse
+            {
+                IsEnabled = is2faEnabled && !string.IsNullOrEmpty(hasAuthenticator),
+                IsMachineRemembered = false, // Skip this to avoid HttpContext issues
+                RecoveryCodesLeft = recoveryCodesLeft
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading 2FA status: {ex.Message}");
+            twoFactorStatus = new TwoFactorStatusResponse
+            {
+                IsEnabled = false,
+                IsMachineRemembered = false,
+                RecoveryCodesLeft = 0
+            };
+        }
+    }
+
+    private async Task DisableTwoFactor()
+    {
+        isProcessing2FA = true;
+        securityError = null;
+        securityMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthService.DisableTwoFactorAsync();
+            
+            if (result.Success)
+            {
+                securityMessage = "Two-factor authentication has been disabled.";
+                await LoadTwoFactorStatusAsync();
+            }
+            else
+            {
+                securityError = result.Message ?? "Failed to disable two-factor authentication.";
+            }
+        }
+        catch (Exception ex)
+        {
+            securityError = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing2FA = false;
+            StateHasChanged();
         }
     }
 

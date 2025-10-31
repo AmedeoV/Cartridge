@@ -1,0 +1,267 @@
+@page "/account/2fa-setup"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@using Cartridge.Core.Models
+@using Cartridge.Infrastructure.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using QRCoder
+@layout RetroLayout
+@attribute [Authorize]
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Two-Factor Authentication Setup - CARTRIDGE</PageTitle>
+
+<div style="max-width: 800px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h2 style="color: var(--retro-primary); font-size: 32px; text-transform: uppercase; margin-bottom: 20px;">
+            🔐 Two-Factor Authentication Setup
+        </h2>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-spinner"></div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div style="background: var(--retro-error); color: white; padding: 18px; margin-bottom: 20px; border: 4px solid darkred; font-size: 11px; line-height: 1.8;">
+            ⚠️ @errorMessage
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/account" class="btn-retro btn-retro-secondary">← BACK TO ACCOUNT</a>
+        </div>
+    }
+    else if (setupComplete)
+    {
+        <div class="filter-section" style="border-color: var(--retro-success);">
+            <h3 class="filter-title" style="color: var(--retro-success);">✅ Two-Factor Authentication Enabled!</h3>
+            <div style="padding: 20px;">
+                <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.8;">
+                    Your account is now protected with two-factor authentication. You'll need to enter a code from your authenticator app when signing in.
+                </p>
+                
+                @if (recoveryCodes != null && recoveryCodes.Any())
+                {
+                    <div style="background: rgba(255, 215, 0, 0.1); border: 2px solid var(--retro-warning); padding: 20px; margin-bottom: 20px; border-radius: 4px;">
+                        <h4 style="color: var(--retro-warning); font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">
+                            ⚠️ Important: Save Your Recovery Codes
+                        </h4>
+                        <p style="color: var(--retro-text); margin-bottom: 15px; font-size: 10px; line-height: 1.8;">
+                            Store these recovery codes in a safe place. You can use them to access your account if you lose access to your authenticator app.
+                        </p>
+                        <div style="background: var(--retro-bg); border: 2px solid var(--retro-border); padding: 15px; font-family: 'Courier New', monospace; font-size: 12px;">
+                            @foreach (var recoveryCode in recoveryCodes)
+                            {
+                                <div style="margin-bottom: 8px; color: var(--retro-text);">@recoveryCode</div>
+                            }
+                        </div>
+                        <button class="btn-retro" style="margin-top: 15px; font-size: 9px;" @onclick="CopyRecoveryCodesToClipboard">
+                            📋 COPY TO CLIPBOARD
+                        </button>
+                    </div>
+                }
+                
+                <div style="text-align: center;">
+                    <a href="/account" class="btn-retro btn-retro-secondary">← BACK TO ACCOUNT</a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="filter-section">
+            <h3 class="filter-title">📱 Step 1: Install Authenticator App</h3>
+            <div style="padding: 20px;">
+                <p style="color: var(--retro-text); margin-bottom: 15px; line-height: 1.8;">
+                    Download and install an authenticator app on your smartphone:
+                </p>
+                <ul style="color: var(--retro-text); line-height: 2; padding-left: 20px; margin-bottom: 0;">
+                    <li><strong>Google Authenticator</strong> (Android / iOS)</li>
+                    <li><strong>Microsoft Authenticator</strong> (Android / iOS)</li>
+                    <li><strong>Authy</strong> (Android / iOS / Desktop)</li>
+                    <li>Any other TOTP-compatible app</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="filter-section" style="margin-top: 30px;">
+            <h3 class="filter-title">📷 Step 2: Scan QR Code</h3>
+            <div style="padding: 20px; text-align: center;">
+                @if (!string.IsNullOrEmpty(qrCodeDataUrl))
+                {
+                    <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.8; font-size: 11px;">
+                        Scan this QR code with your authenticator app:
+                    </p>
+                    <div style="background: white; padding: 20px; display: inline-block; border: 4px solid var(--retro-border); margin-bottom: 20px;">
+                        <img src="@qrCodeDataUrl" alt="QR Code" style="display: block; width: 250px; height: 250px;" />
+                    </div>
+                    
+                    <div style="background: var(--retro-bg-secondary); border: 2px solid var(--retro-border); padding: 15px; margin: 20px auto; max-width: 500px; border-radius: 4px;">
+                        <p style="color: var(--retro-text-dim); font-size: 9px; margin-bottom: 10px; text-transform: uppercase;">
+                            Or enter this key manually:
+                        </p>
+                        <div style="background: var(--retro-bg); border: 2px solid var(--retro-border); padding: 12px; font-family: 'Courier New', monospace; font-size: 14px; color: var(--retro-text); letter-spacing: 2px; word-break: break-all;">
+                            @sharedKey
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="loading-spinner"></div>
+                }
+            </div>
+        </div>
+
+        <div class="filter-section" style="margin-top: 30px;">
+            <h3 class="filter-title">✓ Step 3: Verify Code</h3>
+            <div style="padding: 20px;">
+                <p style="color: var(--retro-text); margin-bottom: 20px; line-height: 1.8;">
+                    Enter the 6-digit code shown in your authenticator app to complete setup:
+                </p>
+                
+                <EditForm Model="@verifyRequest" OnValidSubmit="VerifyAndEnable" FormName="verify2fa">
+                    <DataAnnotationsValidator />
+                    
+                    @if (!string.IsNullOrEmpty(verifyErrorMessage))
+                    {
+                        <div style="background: var(--retro-error); color: white; padding: 15px; margin-bottom: 20px; border: 3px solid darkred; font-size: 10px; line-height: 1.8;">
+                            ⚠️ @verifyErrorMessage
+                        </div>
+                    }
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; color: var(--retro-text); font-size: 11px; margin-bottom: 10px; letter-spacing: 1px;">
+                            VERIFICATION CODE:
+                        </label>
+                        <InputText @bind-Value="verifyRequest.Code"
+                                   maxlength="6"
+                                   placeholder="000000"
+                                   style="width: 100%; padding: 14px; background: var(--retro-bg); color: var(--retro-text); border: 3px solid var(--retro-border); font-family: 'Press Start 2P', monospace; font-size: 16px; text-align: center; letter-spacing: 8px;" />
+                        <ValidationMessage For="@(() => verifyRequest.Code)" style="color: var(--retro-error); font-size: 9px; margin-top: 8px; display: block;" />
+                    </div>
+
+                    <div style="text-align: center;">
+                        <button type="submit" class="btn-retro" style="width: 100%; max-width: 300px;" disabled="@isVerifying">
+                            @if (isVerifying)
+                            {
+                                <span>⏳ VERIFYING...</span>
+                            }
+                            else
+                            {
+                                <span>► ENABLE 2FA ◄</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="/account" style="color: var(--retro-text-dim); font-size: 9px; text-decoration: none;">← CANCEL</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool setupComplete = false;
+    private bool isVerifying = false;
+    private string? errorMessage;
+    private string? verifyErrorMessage;
+    private string? sharedKey;
+    private string? qrCodeDataUrl;
+    private IEnumerable<string>? recoveryCodes;
+    
+    [SupplyParameterFromForm]
+    private Verify2faRequest verifyRequest { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await AuthService.EnableTwoFactorAsync();
+            
+            if (!response.Success)
+            {
+                errorMessage = response.Message ?? "Failed to initialize two-factor authentication";
+                isLoading = false;
+                return;
+            }
+
+            sharedKey = response.SharedKey;
+            
+            // Generate QR code
+            if (!string.IsNullOrEmpty(response.AuthenticatorUri))
+            {
+                GenerateQrCode(response.AuthenticatorUri);
+            }
+            
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            isLoading = false;
+        }
+    }
+
+    private void GenerateQrCode(string authenticatorUri)
+    {
+        try
+        {
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(authenticatorUri, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(20);
+            qrCodeDataUrl = $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to generate QR code: {ex.Message}";
+        }
+    }
+
+    private async Task VerifyAndEnable()
+    {
+        isVerifying = true;
+        verifyErrorMessage = null;
+
+        try
+        {
+            var response = await AuthService.VerifyAndEnableTwoFactorAsync(verifyRequest);
+            
+            if (!response.Success)
+            {
+                verifyErrorMessage = response.Message ?? "Verification failed";
+                isVerifying = false;
+                return;
+            }
+
+            // Generate recovery codes
+            recoveryCodes = await AuthService.GenerateRecoveryCodesAsync();
+            
+            setupComplete = true;
+        }
+        catch (Exception ex)
+        {
+            verifyErrorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isVerifying = false;
+        }
+    }
+
+    private async Task CopyRecoveryCodesToClipboard()
+    {
+        if (recoveryCodes == null || !recoveryCodes.Any())
+            return;
+
+        // Note: Clipboard API requires JavaScript interop
+        // This is a placeholder for future enhancement
+        await Task.CompletedTask;
+    }
+}
