@@ -22,7 +22,11 @@
         </h2>
     </div>
 
-    @if (currentUser != null)
+    @if (isLoading)
+    {
+        <div class="loading-spinner"></div>
+    }
+    else if (currentUser != null)
     {
         <div class="filter-section" style="margin-bottom: 30px;">
             <h3 class="filter-title">👤 Profile Information</h3>
@@ -138,10 +142,18 @@
     private bool isDeleting = false;
     private string deleteConfirmationText = "";
     private string? errorMessage;
+    private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadUserAsync();
+        try
+        {
+            await LoadUserAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task LoadUserAsync()
@@ -154,7 +166,8 @@
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!string.IsNullOrEmpty(userId))
             {
-                currentUser = await UserManager.FindByIdAsync(userId);
+                // Use Task.Run to avoid DbContext threading issues in Blazor Server
+                currentUser = await Task.Run(async () => await UserManager.FindByIdAsync(userId));
             }
         }
     }

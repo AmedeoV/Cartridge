@@ -610,8 +610,10 @@ h2, h3 {
     }
     
     .retro-nav {
-        flex-direction: column;
+        flex-direction: row;
         gap: 8px;
+        justify-content: center;
+        flex-wrap: wrap;
     }
 
     .retro-nav a {
@@ -779,7 +781,49 @@ h2, h3 {
     color: var(--retro-bg);
 }
 
+/* Library header responsive layout */
+.library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 20px;
+}
+
+.library-header h2 {
+    flex: 1;
+    margin: 0;
+    min-width: 0; /* Allow text to shrink */
+}
+
+.library-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
+    .library-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .library-header h2 {
+        font-size: 20px !important;
+        width: 100%;
+    }
+
+    .library-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .library-actions .btn-retro {
+        flex: 1 1 auto;
+        min-width: 120px;
+    }
+
     .modal-content {
         width: 95%;
         max-height: 95vh;

@@ -82,6 +82,11 @@ _ReSharper*/
 **/appsettings.local.json
 **/appsettings.*.local.json
 
+# Environment files (Docker secrets)
+.env
+.env.local
+.env.*.local
+
 # Database files that may contain user data
 *.db
 *.sqlite

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: cartridge-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cartridge_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cartridge-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ASP.NET Core Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cartridge-web
+    ports:
+      - "8081:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=cartridge_db;Username=postgres;Password=postgres
+      - SteamApi__ApiKey=${STEAM_API_KEY:-YOUR_STEAM_API_KEY_HERE}
+      - SteamApi__BaseUrl=https://api.steampowered.com
+      - SteamApi__StoreBaseUrl=https://store.steampowered.com/api
+      - RawgApi__ApiKey=${RAWG_API_KEY:-YOUR_RAWG_API_KEY_HERE}
+      - RawgApi__BaseUrl=https://api.rawg.io/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cartridge-network
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+  app-data:
+    driver: local
+
+networks:
+  cartridge-network:
+    driver: bridge

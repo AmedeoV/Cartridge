@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@implements IDisposable
 @attribute [Authorize]
 @inject IGameLibraryService GameLibraryService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -14,23 +15,13 @@
 <PageTitle>CARTRIDGE - My Library</PageTitle>
 
 <div style="padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-        <h2 style="color: var(--retro-primary); font-size: 28px; text-transform: uppercase; text-align: center; flex: 1;">
+    <div class="library-header">
+        <h2 style="color: var(--retro-primary); font-size: 28px; text-transform: uppercase; text-align: center;">
             ◄► YOUR GAME LIBRARY ◄►
         </h2>
-        <div style="display: flex; gap: 10px;">
+        <div class="library-actions">
             <button class="btn-retro" @onclick="OpenAddGameModal">
                 ➕ Add Game
-            </button>
-            <button class="btn-retro" @onclick="SyncLibrary" disabled="@isSyncing">
-                @if (isSyncing)
-                {
-                    <span>⟳ Syncing...</span>
-                }
-                else
-                {
-                    <span>🔄 Sync Library</span>
-                }
             </button>
         </div>
     </div>
@@ -55,8 +46,9 @@
                     @if (!string.IsNullOrWhiteSpace(searchQuery))
                     {
                         <button @onclick="ClearSearch" 
+                                title="Clear search"
                                 style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--retro-warning); cursor: pointer; font-size: 20px; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
-                            ✕
+                            ×
                         </button>
                     }
                 </div>
@@ -577,6 +569,10 @@
     private string selectedPlatformForNewGame = string.Empty;
     private string addGameError = string.Empty;
 
+    // Auto-sync timer
+    private System.Threading.Timer? autoSyncTimer;
+    private const int AutoSyncIntervalMinutes = 30; // Sync every 30 minutes
+
     private enum SortOption
     {
         Title,
@@ -594,6 +590,9 @@
         {
             library = await GameLibraryService.GetUserLibraryAsync(currentUserId);
             ApplyFilters();
+            
+            // Start auto-sync timer
+            StartAutoSync();
         }
     }
 
@@ -876,5 +875,26 @@
             isAddingGame = false;
             StateHasChanged();
         }
+    }
+
+    private void StartAutoSync()
+    {
+        // Create a timer that fires every AutoSyncIntervalMinutes
+        autoSyncTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                // Only sync if not already syncing and user is authenticated
+                if (!isSyncing && !string.IsNullOrEmpty(currentUserId))
+                {
+                    await SyncLibrary();
+                }
+            });
+        }, null, TimeSpan.FromMinutes(AutoSyncIntervalMinutes), TimeSpan.FromMinutes(AutoSyncIntervalMinutes));
+    }
+
+    public void Dispose()
+    {
+        autoSyncTimer?.Dispose();
     }
 }

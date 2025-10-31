@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: cartridge-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cartridge_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    networks:
+      - cartridge-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ASP.NET Core Web Application (Development)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build  # Stop at build stage for development
+    container_name: cartridge-web-dev
+    ports:
+      - "8080:8080"
+      - "8081:8081"  # Additional port for debugging
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=cartridge_db;Username=postgres;Password=postgres
+      - SteamApi__ApiKey=${STEAM_API_KEY:-YOUR_STEAM_API_KEY_HERE}
+      - SteamApi__BaseUrl=https://api.steampowered.com
+      - SteamApi__StoreBaseUrl=https://store.steampowered.com/api
+      - RawgApi__ApiKey=${RAWG_API_KEY:-YOUR_RAWG_API_KEY_HERE}
+      - RawgApi__BaseUrl=https://api.rawg.io/api
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__Microsoft.AspNetCore=Information
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cartridge-network
+    volumes:
+      - ./src:/src  # Mount source code for hot reload
+      - app-dev-data:/app/data
+    command: ["dotnet", "watch", "run", "--project", "/src/src/Cartridge.Web/Cartridge.Web.csproj", "--urls", "http://+:8080"]
+    restart: unless-stopped
+
+volumes:
+  postgres-dev-data:
+    driver: local
+  app-dev-data:
+    driver: local
+
+networks:
+  cartridge-network:
+    driver: bridge

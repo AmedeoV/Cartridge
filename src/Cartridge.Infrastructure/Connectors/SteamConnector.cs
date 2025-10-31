@@ -37,8 +37,8 @@ public class SteamConnector : IPlatformConnector
         // Check if user has connected their Steam account
         if (!_userSteamIds.TryGetValue(userId, out var steamId))
         {
-            _logger.LogWarning("No Steam ID found for user {UserId}. Returning mock data.", userId);
-            return GetMockGames(); // Fallback to mock data
+            _logger.LogError("No Steam ID found for user {UserId}. User must connect their Steam account first.", userId);
+            throw new InvalidOperationException("Steam account not connected. Please connect your Steam account first.");
         }
 
         try
@@ -51,8 +51,7 @@ public class SteamConnector : IPlatformConnector
             if (gamesResponse == null)
             {
                 _logger.LogError("Steam API returned null response. Check if API key is configured correctly.");
-                _logger.LogWarning("Falling back to mock data. Configure your Steam API key in appsettings.json or user secrets.");
-                return GetMockGames();
+                throw new InvalidOperationException("Failed to fetch games from Steam API. Please check your Steam API configuration.");
             }
             
             if (gamesResponse?.Response?.Games == null || gamesResponse.Response.Games.Count == 0)
@@ -112,7 +111,7 @@ public class SteamConnector : IPlatformConnector
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching games from Steam for user {UserId}", userId);
-            return GetMockGames(); // Fallback to mock data on error
+            throw;
         }
     }
 
@@ -135,59 +134,5 @@ public class SteamConnector : IPlatformConnector
         _userSteamIds.Remove(userId);
         _logger.LogInformation("Disconnected Steam account for user {UserId}", userId);
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Returns mock data for development/demo purposes
-    /// </summary>
-    private List<Game> GetMockGames()
-    {
-        return new List<Game>
-        {
-            new Game
-            {
-                Id = "steam_demo_1",
-                Title = "Half-Life 2",
-                Description = "1998. HALF-LIFE sends a shock through the game industry with its combination of pounding action and continuous, immersive storytelling.",
-                Platform = Platform.Steam,
-                ReleaseDate = new DateTime(2004, 11, 16),
-                AddedToLibrary = DateTime.UtcNow.AddMonths(-6),
-                PlaytimeMinutes = 1200,
-                Genres = new List<string> { "FPS", "Action" },
-                Developer = "Valve",
-                Publisher = "Valve",
-                CoverImageUrl = _steamClient.GetGameLibraryImageUrl(220)
-            },
-            new Game
-            {
-                Id = "steam_demo_2",
-                Title = "Portal 2",
-                Description = "The 'Perpetual Testing Initiative' has been expanded to allow you to design co-op puzzles for you and your friends!",
-                Platform = Platform.Steam,
-                ReleaseDate = new DateTime(2011, 4, 18),
-                AddedToLibrary = DateTime.UtcNow.AddMonths(-3),
-                PlaytimeMinutes = 480,
-                LastPlayed = DateTime.UtcNow.AddDays(-5),
-                Genres = new List<string> { "Puzzle", "First-Person" },
-                Developer = "Valve",
-                Publisher = "Valve",
-                CoverImageUrl = _steamClient.GetGameLibraryImageUrl(620)
-            },
-            new Game
-            {
-                Id = "steam_demo_3",
-                Title = "Stardew Valley",
-                Description = "You've inherited your grandfather's old farm plot in Stardew Valley. Armed with hand-me-down tools and a few coins, you set out to begin your new life.",
-                Platform = Platform.Steam,
-                ReleaseDate = new DateTime(2016, 2, 26),
-                AddedToLibrary = DateTime.UtcNow.AddMonths(-1),
-                PlaytimeMinutes = 3600,
-                LastPlayed = DateTime.UtcNow.AddDays(-1),
-                Genres = new List<string> { "RPG", "Simulation", "Indie" },
-                Developer = "ConcernedApe",
-                Publisher = "ConcernedApe",
-                CoverImageUrl = _steamClient.GetGameLibraryImageUrl(413150)
-            }
-        };
     }
 }

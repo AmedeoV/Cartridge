@@ -1,0 +1,641 @@
+@page "/admin"
+@rendermode InteractiveServer
+@using Cartridge.Web.Components.Layout
+@layout RetroLayout
+@using Cartridge.Core.Models
+@using Cartridge.Infrastructure.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@attribute [Authorize]
+@inject IAdminService AdminService
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Admin Panel</PageTitle>
+
+<div class="retro-container">
+    <div class="retro-header-bar">
+        <h1 class="retro-title">👑 ADMIN PANEL 👑</h1>
+    </div>
+
+    @if (!isAdmin)
+    {
+        <div class="retro-panel error-panel">
+            <h2>⛔ ACCESS DENIED ⛔</h2>
+            <p>You do not have permission to access this page.</p>
+        </div>
+    }
+    else if (users == null)
+    {
+        <div class="retro-panel loading-panel">
+            <h2>⏳ LOADING USERS... ⏳</h2>
+            <div class="loading-dots">
+                <span>.</span><span>.</span><span>.</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="retro-panel success-panel">
+                <button class="close-btn" @onclick="() => successMessage = null">✕</button>
+                <p>✓ @successMessage</p>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="retro-panel error-panel">
+                <button class="close-btn" @onclick="() => errorMessage = null">✕</button>
+                <p>✗ @errorMessage</p>
+            </div>
+        }
+
+        <div class="retro-panel">
+            <div class="panel-header">
+                <h2>👥 USER MANAGEMENT</h2>
+                <p class="user-count">TOTAL USERS: @users.Count</p>
+            </div>
+            
+            <div class="user-table-container">
+                <table class="retro-table">
+                    <thead>
+                        <tr>
+                            <th>EMAIL</th>
+                            <th>NAME</th>
+                            <th>ROLE</th>
+                            <th>GAMES</th>
+                            <th>CREATED</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users.OrderByDescending(u => u.IsAdmin).ThenBy(u => u.Email))
+                        {
+                            <tr class="@(user.IsAdmin ? "admin-row" : "")">
+                                <td>
+                                    @user.Email
+                                    @if (user.Id == currentUserId)
+                                    {
+                                        <span class="badge-you">YOU</span>
+                                    }
+                                </td>
+                                <td>@(user.DisplayName ?? "-")</td>
+                                <td>
+                                    @if (user.IsAdmin)
+                                    {
+                                        <span class="badge-admin">👑 ADMIN</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-user">USER</span>
+                                    }
+                                </td>
+                                <td>@user.GamesCount</td>
+                                <td>@user.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn-retro btn-small" @onclick="() => ShowResetPasswordModal(user)">
+                                            🔐 RESET
+                                        </button>
+                                        @if (user.Id != currentUserId)
+                                        {
+                                            <button class="btn-retro btn-small btn-warning" @onclick="() => ToggleAdminStatus(user)">
+                                                @(user.IsAdmin ? "👤 DEMOTE" : "👑 PROMOTE")
+                                            </button>
+                                            <button class="btn-retro btn-small btn-danger" @onclick="() => ShowDeleteConfirmation(user)">
+                                                🗑️ DELETE
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* Reset Password Modal *@
+@if (showResetPasswordModal && selectedUser != null)
+{
+    <div class="retro-modal-overlay" @onclick="CloseResetPasswordModal">
+        <div class="retro-modal" @onclick:stopPropagation="true">
+            <div class="modal-header-bar">
+                <h2>🔐 RESET PASSWORD</h2>
+                <button class="close-btn" @onclick="CloseResetPasswordModal">✕</button>
+            </div>
+            <div class="modal-content">
+                <p class="user-email">FOR USER: @selectedUser.Email</p>
+                
+                <div class="form-group">
+                    <label>NEW PASSWORD:</label>
+                    <input type="password" class="retro-input" @bind="newPassword" placeholder="Enter new password">
+                    <small class="form-hint">Min 8 chars, uppercase, lowercase, digit</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>CONFIRM PASSWORD:</label>
+                    <input type="password" class="retro-input" @bind="confirmPassword" placeholder="Confirm password">
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn-retro" @onclick="ResetPassword">✓ RESET PASSWORD</button>
+                    <button class="btn-retro btn-secondary" @onclick="CloseResetPasswordModal">✗ CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Delete Confirmation Modal *@
+@if (showDeleteModal && selectedUser != null)
+{
+    <div class="retro-modal-overlay" @onclick="CloseDeleteModal">
+        <div class="retro-modal" @onclick:stopPropagation="true">
+            <div class="modal-header-bar">
+                <h2>⚠️ CONFIRM DELETE</h2>
+                <button class="close-btn" @onclick="CloseDeleteModal">✕</button>
+            </div>
+            <div class="modal-content">
+                <p class="warning-text">DELETE USER: @selectedUser.Email?</p>
+                <p class="danger-text">⚠️ THIS CANNOT BE UNDONE! ⚠️</p>
+                <p>All user data and games will be permanently deleted.</p>
+                
+                <div class="modal-actions">
+                    <button class="btn-retro btn-danger" @onclick="DeleteUser">🗑️ DELETE USER</button>
+                    <button class="btn-retro btn-secondary" @onclick="CloseDeleteModal">✗ CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .retro-container {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+
+    .retro-header-bar {
+        background: var(--retro-bg-lighter);
+        border: 4px solid var(--retro-border);
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 4px 4px 0 var(--retro-shadow);
+    }
+
+    .retro-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 24px;
+        color: var(--retro-highlight);
+        text-align: center;
+        margin: 0;
+        text-shadow: 3px 3px 0 var(--retro-border);
+    }
+
+    .retro-panel {
+        background: var(--retro-bg-lighter);
+        border: 4px solid var(--retro-border);
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 4px 4px 0 var(--retro-shadow);
+    }
+
+    .retro-panel.success-panel {
+        border-color: var(--retro-accent);
+        background: rgba(150, 206, 180, 0.1);
+    }
+
+    .retro-panel.error-panel {
+        border-color: var(--retro-warning);
+        background: rgba(255, 118, 117, 0.1);
+    }
+
+    .retro-panel.loading-panel {
+        text-align: center;
+        padding: 40px;
+    }
+
+    .close-btn {
+        float: right;
+        background: none;
+        border: none;
+        color: var(--retro-warning);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0;
+        font-family: 'Press Start 2P', monospace;
+    }
+
+    .close-btn:hover {
+        color: var(--retro-error);
+    }
+
+    .panel-header {
+        margin-bottom: 20px;
+    }
+
+    .panel-header h2 {
+        font-size: 16px;
+        color: var(--retro-primary);
+        margin: 0 0 10px 0;
+    }
+
+    .user-count {
+        font-size: 12px;
+        color: var(--retro-text-dim);
+        margin: 0;
+    }
+
+    .user-table-container {
+        overflow-x: auto;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .retro-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 11px;
+    }
+
+    .retro-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .retro-table th {
+        background: var(--retro-bg);
+        color: var(--retro-highlight);
+        padding: 12px 8px;
+        text-align: left;
+        border: 2px solid var(--retro-border);
+        font-weight: bold;
+    }
+
+    .retro-table td {
+        padding: 12px 8px;
+        border: 2px solid var(--retro-border);
+        background: var(--retro-bg);
+        color: var(--retro-text);
+    }
+
+    .retro-table tr.admin-row td {
+        background: rgba(78, 205, 196, 0.1);
+        border-color: var(--retro-primary);
+    }
+
+    .badge-admin,
+    .badge-user,
+    .badge-you {
+        display: inline-block;
+        padding: 4px 8px;
+        font-size: 9px;
+        border: 2px solid;
+        margin-left: 8px;
+    }
+
+    .badge-admin {
+        background: var(--retro-highlight);
+        color: var(--retro-bg);
+        border-color: var(--retro-highlight);
+    }
+
+    .badge-user {
+        background: var(--retro-bg-lightest);
+        color: var(--retro-text-dim);
+        border-color: var(--retro-border);
+    }
+
+    .badge-you {
+        background: var(--retro-primary);
+        color: var(--retro-bg);
+        border-color: var(--retro-primary);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .btn-retro.btn-small {
+        padding: 6px 12px;
+        font-size: 9px;
+    }
+
+    .btn-retro.btn-warning {
+        background-color: var(--retro-highlight);
+        color: var(--retro-bg);
+    }
+
+    .btn-retro.btn-danger {
+        background-color: var(--retro-warning);
+        color: white;
+    }
+
+    .btn-retro.btn-secondary {
+        background-color: var(--retro-bg-lightest);
+        color: var(--retro-text);
+    }
+
+    /* Modal Styles */
+    .retro-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 22, 40, 0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .retro-modal {
+        background: var(--retro-bg-lighter);
+        border: 4px solid var(--retro-border);
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 8px 8px 0 var(--retro-shadow);
+    }
+
+    .modal-header-bar {
+        background: var(--retro-bg);
+        padding: 15px;
+        border-bottom: 4px solid var(--retro-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header-bar h2 {
+        font-size: 14px;
+        color: var(--retro-primary);
+        margin: 0;
+    }
+
+    .modal-content {
+        padding: 20px;
+    }
+
+    .user-email {
+        color: var(--retro-highlight);
+        font-size: 12px;
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        color: var(--retro-text);
+        font-size: 11px;
+        margin-bottom: 8px;
+    }
+
+    .retro-input {
+        width: 100%;
+        padding: 10px;
+        background: var(--retro-bg);
+        border: 3px solid var(--retro-border);
+        color: var(--retro-text);
+        font-family: 'Press Start 2P', monospace;
+        font-size: 11px;
+    }
+
+    .retro-input:focus {
+        outline: none;
+        border-color: var(--retro-primary);
+    }
+
+    .form-hint {
+        display: block;
+        color: var(--retro-text-dim);
+        font-size: 9px;
+        margin-top: 5px;
+    }
+
+    .warning-text {
+        color: var(--retro-highlight);
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .danger-text {
+        color: var(--retro-warning);
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        margin: 20px 0;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+
+    .loading-dots span {
+        animation: blink 1.4s infinite;
+        font-size: 24px;
+        color: var(--retro-primary);
+    }
+
+    .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @@keyframes blink {
+        0%, 20%, 100% { opacity: 0; }
+        50% { opacity: 1; }
+    }
+</style>
+
+@code {
+    private List<UserDto>? users;
+    private bool isAdmin = false;
+    private string? currentUserId;
+    private string? successMessage;
+    private string? errorMessage;
+
+    // Modal state
+    private bool showResetPasswordModal = false;
+    private bool showDeleteModal = false;
+    private UserDto? selectedUser;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var currentUser = await UserManager.GetUserAsync(user);
+                if (currentUser != null)
+                {
+                    currentUserId = currentUser.Id;
+                    isAdmin = currentUser.IsAdmin;
+
+                    if (isAdmin)
+                    {
+                        await LoadUsersAsync();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading admin panel: {ex.Message}";
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            users = await AdminService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading users: {ex.Message}";
+        }
+    }
+
+    private void ShowResetPasswordModal(UserDto user)
+    {
+        selectedUser = user;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+        showResetPasswordModal = true;
+        errorMessage = null;
+    }
+
+    private void CloseResetPasswordModal()
+    {
+        showResetPasswordModal = false;
+        selectedUser = null;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+    }
+
+    private async Task ResetPassword()
+    {
+        if (selectedUser == null) return;
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            errorMessage = "Password cannot be empty.";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        if (newPassword.Length < 8)
+        {
+            errorMessage = "Password must be at least 8 characters long.";
+            return;
+        }
+
+        try
+        {
+            var success = await AdminService.ResetUserPasswordAsync(selectedUser.Id, newPassword);
+            if (success)
+            {
+                successMessage = $"Password reset successfully for {selectedUser.Email}.";
+                CloseResetPasswordModal();
+            }
+            else
+            {
+                errorMessage = "Failed to reset password. Please ensure the password meets the requirements.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error resetting password: {ex.Message}";
+        }
+    }
+
+    private async Task ToggleAdminStatus(UserDto user)
+    {
+        try
+        {
+            var success = await AdminService.ToggleAdminStatusAsync(user.Id);
+            if (success)
+            {
+                successMessage = $"{user.Email} admin status updated.";
+                await LoadUsersAsync();
+            }
+            else
+            {
+                errorMessage = "Failed to update admin status. Cannot remove the last admin user.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating admin status: {ex.Message}";
+        }
+    }
+
+    private void ShowDeleteConfirmation(UserDto user)
+    {
+        selectedUser = user;
+        showDeleteModal = true;
+        errorMessage = null;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        selectedUser = null;
+    }
+
+    private async Task DeleteUser()
+    {
+        if (selectedUser == null) return;
+
+        try
+        {
+            var success = await AdminService.DeleteUserAsync(selectedUser.Id);
+            if (success)
+            {
+                successMessage = $"User {selectedUser.Email} deleted successfully.";
+                await LoadUsersAsync();
+                CloseDeleteModal();
+            }
+            else
+            {
+                errorMessage = "Failed to delete user. Cannot delete the last admin user.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting user: {ex.Message}";
+        }
+    }
+}

@@ -57,8 +57,43 @@ Cartridge/
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later
 - A code editor (Visual Studio 2022, VS Code, or Rider recommended)
+- **OR** [Docker](https://www.docker.com/get-started) and Docker Compose (for containerized deployment)
 
-### Installation
+### Quick Start with Docker 🐳
+
+The easiest way to run Cartridge is with Docker:
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd Cartridge
+   ```
+
+2. **Set up environment variables (optional)**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your Steam and RAWG API keys
+   ```
+
+3. **Start the application**
+   ```bash
+   # Using docker-compose
+   docker-compose up -d
+   
+   # OR using PowerShell script (Windows)
+   .\docker.ps1 up
+   
+   # OR using Makefile (Linux/Mac)
+   make up
+   ```
+
+4. **Access the application**
+   - Open your browser to `http://localhost:8080`
+   - Enjoy your retro gaming library! 🎮
+
+For detailed Docker instructions, see [README.Docker.md](README.Docker.md)
+
+### Installation (Local Development)
 
 1. **Clone the repository**
    ```bash

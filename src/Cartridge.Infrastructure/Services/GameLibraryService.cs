@@ -13,24 +13,26 @@ namespace Cartridge.Infrastructure.Services;
 public class GameLibraryService : IGameLibraryService
 {
     private readonly IEnumerable<IPlatformConnector> _platformConnectors;
-    private readonly ApplicationDbContext _context;
+    private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly RawgApiClient _rawgApiClient;
     private readonly ILogger<GameLibraryService> _logger;
 
     public GameLibraryService(
         IEnumerable<IPlatformConnector> platformConnectors,
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         RawgApiClient rawgApiClient,
         ILogger<GameLibraryService> logger)
     {
         _platformConnectors = platformConnectors;
-        _context = context;
+        _contextFactory = contextFactory;
         _rawgApiClient = rawgApiClient;
         _logger = logger;
     }
 
     public async Task<UserLibrary> GetUserLibraryAsync(string userId)
     {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
         var library = new UserLibrary
         {
             UserId = userId,
@@ -38,7 +40,7 @@ public class GameLibraryService : IGameLibraryService
         };
 
         // Get games from database
-        var userGames = await _context.UserGames
+        var userGames = await context.UserGames
             .Where(g => g.UserId == userId)
             .OrderByDescending(g => g.LastPlayed ?? g.AddedAt)
             .ToListAsync();
@@ -63,7 +65,7 @@ public class GameLibraryService : IGameLibraryService
         }).ToList();
         
         // Get connected platforms from database
-        var connections = await _context.PlatformConnections
+        var connections = await context.PlatformConnections
             .Where(c => c.UserId == userId && c.IsConnected)
             .ToListAsync();
         
@@ -87,7 +89,9 @@ public class GameLibraryService : IGameLibraryService
 
     public async Task<List<Game>> GetGamesByPlatformAsync(string userId, Platform platform)
     {
-        var userGames = await _context.UserGames
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var userGames = await context.UserGames
             .Where(g => g.UserId == userId && g.Platform == platform)
             .OrderByDescending(g => g.LastPlayed ?? g.AddedAt)
             .ToListAsync();
@@ -114,7 +118,9 @@ public class GameLibraryService : IGameLibraryService
 
     public async Task<Game?> GetGameByIdAsync(string gameId)
     {
-        var userGame = await _context.UserGames
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var userGame = await context.UserGames
             .FirstOrDefaultAsync(g => g.Id == gameId || g.ExternalId == gameId);
         
         if (userGame == null)
@@ -142,8 +148,10 @@ public class GameLibraryService : IGameLibraryService
 
     public async Task SyncLibraryAsync(string userId)
     {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
         // Force refresh from all connected platforms
-        var connections = await _context.PlatformConnections
+        var connections = await context.PlatformConnections
             .Where(c => c.UserId == userId && c.IsConnected)
             .ToListAsync();
         
@@ -157,7 +165,7 @@ public class GameLibraryService : IGameLibraryService
                 // Update games in database
                 foreach (var game in games)
                 {
-                    var existing = await _context.UserGames
+                    var existing = await context.UserGames
                         .FirstOrDefaultAsync(g => g.UserId == userId && 
                                                 g.ExternalId == game.Id && 
                                                 g.Platform == game.Platform);
@@ -206,7 +214,7 @@ public class GameLibraryService : IGameLibraryService
                             Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null
                         };
                         
-                        _context.UserGames.Add(userGame);
+                        context.UserGames.Add(userGame);
                     }
                     else
                     {
@@ -234,13 +242,15 @@ public class GameLibraryService : IGameLibraryService
             }
         }
         
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 
     public async Task<Game> AddManualGameAsync(string userId, Game game)
     {
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
         // Check if game already exists
-        var existing = await _context.UserGames
+        var existing = await context.UserGames
             .FirstOrDefaultAsync(g => g.UserId == userId && 
                                     g.Title == game.Title && 
                                     g.Platform == game.Platform);
@@ -286,8 +296,8 @@ public class GameLibraryService : IGameLibraryService
             Genres = game.Genres.Any() ? string.Join(", ", game.Genres) : null
         };
 
-        _context.UserGames.Add(userGame);
-        await _context.SaveChangesAsync();
+        context.UserGames.Add(userGame);
+        await context.SaveChangesAsync();
 
         return new Game
         {
@@ -316,7 +326,9 @@ public class GameLibraryService : IGameLibraryService
 
     public async Task<bool> RemoveManualGameAsync(string userId, string gameId)
     {
-        var userGame = await _context.UserGames
+        using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var userGame = await context.UserGames
             .FirstOrDefaultAsync(g => (g.Id == gameId || g.ExternalId == gameId) && g.UserId == userId);
 
         if (userGame == null)
@@ -332,8 +344,8 @@ public class GameLibraryService : IGameLibraryService
         }
 
         _logger.LogInformation("🗑️ Removing manually added game: {GameTitle}", userGame.Title);
-        _context.UserGames.Remove(userGame);
-        await _context.SaveChangesAsync();
+        context.UserGames.Remove(userGame);
+        await context.SaveChangesAsync();
         
         return true;
     }

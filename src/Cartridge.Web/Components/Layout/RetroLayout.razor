@@ -1,5 +1,8 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@using Cartridge.Core.Models
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
 
 <div class="retro-header">
     <h1 class="retro-logo">🎮 CARTRIDGE 🎮</h1>
@@ -9,6 +12,10 @@
                 <a href="/library" class="@(IsActive("/library") ? "active" : "")">📚 LIBRARY</a>
                 <a href="/platforms" class="@(IsActivePlatforms() ? "active" : "")">🎮 PLATFORMS</a>
                 <a href="/stats" class="@(IsActive("/stats") ? "active" : "")">📊 STATS</a>
+                @if (isAdmin)
+                {
+                    <a href="/admin" class="@(IsActive("/admin") ? "active" : "")" style="color: var(--retro-warning);">👑 ADMIN</a>
+                }
                 <a href="/account" class="@(IsActive("/account") ? "active" : "")">⚙️ ACCOUNT</a>
                 <form method="post" action="/signout" style="display: inline;">
                     <button type="submit" style="background: none; border: none; color: var(--retro-warning); cursor: pointer; font-family: 'Press Start 2P', monospace; font-size: 11px; padding: 8px 16px;">🚪 SIGN OUT</button>
@@ -37,6 +44,26 @@
 
 @code {
     [Inject] NavigationManager Navigation { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+    
+    private bool isAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var currentUser = await UserManager.GetUserAsync(user);
+                if (currentUser != null)
+                {
+                    isAdmin = currentUser.IsAdmin;
+                }
+            }
+        }
+    }
 
     private bool IsActive(string path)
     {

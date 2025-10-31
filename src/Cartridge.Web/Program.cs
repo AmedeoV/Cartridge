@@ -27,6 +27,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddAntiforgery();
 
 // Configure PostgreSQL Database
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Also add regular DbContext for Identity and other services that need it
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -107,6 +111,9 @@ builder.Services.AddScoped<Cartridge.Infrastructure.AmazonGames.AmazonGamesManua
 // Register authentication service
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Register admin service
+builder.Services.AddScoped<IAdminService, AdminService>();
+
 // Register application services
 builder.Services.AddScoped<IGameLibraryService, GameLibraryService>();
 builder.Services.AddScoped<IPlatformConnectionService, PlatformConnectionService>();
@@ -120,6 +127,22 @@ builder.Services.AddScoped<IPlatformConnector, UbisoftConnectConnector>();
 builder.Services.AddScoped<IPlatformConnector, RockstarConnector>();
 
 var app = builder.Build();
+
+// Apply database migrations automatically on startup (useful for Docker)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate();
+        app.Logger.LogInformation("Database migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while migrating the database");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -138,6 +161,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
+
+// Map health check endpoint for Docker
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 // Map sign out endpoint
 app.MapPost("/signout", async (HttpContext context, SignInManager<ApplicationUser> signInManager) =>
