@@ -11,6 +11,7 @@
 @attribute [Authorize]
 @inject IGameLibraryService GameLibraryService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
 
 <PageTitle>CARTRIDGE - My Library</PageTitle>
 
@@ -593,6 +594,16 @@
             
             // Start auto-sync timer
             StartAutoSync();
+        }
+
+        // Check if we should open the Add Game modal
+        var uri = new Uri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        if (query["openAddGame"] == "true")
+        {
+            // Small delay to ensure the page is fully loaded
+            await Task.Delay(100);
+            OpenAddGameModal();
         }
     }
 

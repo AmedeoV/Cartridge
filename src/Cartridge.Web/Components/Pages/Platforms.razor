@@ -205,17 +205,17 @@
                             @library.Games.Count(g => g.Platform == Platform.Rockstar)
                         </div>
                         <div style="color: var(--retro-text-dim); margin-bottom: 15px;">games in library</div>
-                        <button class="btn-retro" disabled style="opacity: 0.5;">⚙️ Manage</button>
+                        <button class="btn-retro" @onclick="GoToAddGame">➕ Add Game Manually</button>
                     }
                     else
                     {
                         <div style="color: var(--retro-text-dim); margin: 10px 0; font-size: 13px;">
-                            Not yet supported
+                            Add games manually
                         </div>
                         <div style="color: var(--retro-warning); font-size: 11px; margin: 10px 0; line-height: 1.4;">
-                            🚧 Integration coming soon
+                            🚧 Automatic integration coming soon
                         </div>
-                        <button class="btn-retro" disabled style="opacity: 0.5;">Coming Soon</button>
+                        <button class="btn-retro btn-retro-secondary" @onclick="GoToAddGame">➕ Add Game Manually</button>
                     }
                 </div>
             </div>
@@ -247,5 +247,10 @@
         {
             currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
+    }
+
+    private void GoToAddGame()
+    {
+        Navigation.NavigateTo("/library?openAddGame=true");
     }
 }
