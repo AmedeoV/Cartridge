@@ -8,85 +8,14 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Runs on your WSL2 runner
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup SSH
-        env:
-          SSH_KEY: ${{ secrets.WSL_SSH_KEY }}
-          SSH_HOST: ${{ secrets.WSL_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          
-          # Debug: Check if key file was created properly
-          if [ ! -s ~/.ssh/id_ed25519 ]; then
-            echo "Error: SSH key file is empty or not created"
-            exit 1
-          fi
-          
-          # Scan host key (allow it to fail without stopping)
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          
-          # Disable strict host key checking for this deployment
-          cat >> ~/.ssh/config <<EOF
-          Host $SSH_HOST
-              StrictHostKeyChecking no
-              UserKnownHostsFile /dev/null
-          EOF
-          chmod 600 ~/.ssh/config
-      
-      - name: Test SSH Connection
-        env:
-          WSL_HOST: ${{ secrets.WSL_HOST }}
-          WSL_USER: ${{ secrets.WSL_USER }}
-        run: |
-          echo "Testing SSH connection to ${WSL_USER}@${WSL_HOST}..."
-          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} "echo 'SSH connection successful!' && whoami && pwd"
-      
       - name: Deploy to WSL2
         env:
-          WSL_HOST: ${{ secrets.WSL_HOST }}
-          WSL_USER: ${{ secrets.WSL_USER }}
-          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
-            set -e
-            
-            # Navigate to deployment directory
-            cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
-            
-            echo "📦 Pulling latest changes..."
-            git pull origin main
-            
-            echo "🔧 Creating .env file from GitHub secrets..."
-            # Note: Secrets are set via separate SSH command for security
-            
-            echo "🛑 Stopping existing containers..."
-            docker compose down
-            
-            echo "🏗️ Building and starting containers..."
-            docker compose up -d --build
-            
-            echo "⏳ Waiting for services to start..."
-            sleep 10
-            
-            echo "✅ Checking container status..."
-            docker compose ps
-            
-            echo "📊 Deployment completed successfully!"
-          ENDSSH
-      
-      - name: Update Environment Variables
-        env:
-          WSL_HOST: ${{ secrets.WSL_HOST }}
-          WSL_USER: ${{ secrets.WSL_USER }}
-          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -95,7 +24,18 @@ jobs:
           POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
           APP_PORT: ${{ secrets.APP_PORT }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} "cd ${WSL_DEPLOY_PATH:-~/apps/cartridge} && cat > .env" <<EOF
+          set -e
+          
+          echo "🚀 Starting deployment to WSL2..."
+          
+          # Navigate to WSL2 deployment directory
+          cd ~/apps/cartridge
+          
+          echo "📦 Pulling latest changes..."
+          git pull origin main
+          
+          echo "🔧 Creating .env file from GitHub secrets..."
+          cat > .env <<EOF
           # =============================================================================
           # API KEYS
           # =============================================================================
@@ -105,25 +45,31 @@ jobs:
           # =============================================================================
           # DATABASE CONFIGURATION
           # =============================================================================
-          POSTGRES_USER=${POSTGRES_USER:-postgres}
-          POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-          POSTGRES_DB=${POSTGRES_DB:-cartridge_db}
-          POSTGRES_PORT=${POSTGRES_PORT:-5433}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_PORT=${POSTGRES_PORT}
           
           # =============================================================================
           # APPLICATION CONFIGURATION
           # =============================================================================
           ASPNETCORE_ENVIRONMENT=Production
-          APP_PORT=${APP_PORT:-8081}
+          APP_PORT=${APP_PORT}
           EOF
           
-          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
-            cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
-            echo "✅ Environment variables updated"
-            
-            # Restart containers to pick up new environment variables
-            docker compose up -d
-          ENDSSH
+          echo "🛑 Stopping existing containers..."
+          docker compose down
+          
+          echo "🏗️ Building and starting containers..."
+          docker compose up -d --build
+          
+          echo "⏳ Waiting for services to start..."
+          sleep 15
+          
+          echo "✅ Checking container status..."
+          docker compose ps
+          
+          echo "📊 Deployment completed successfully!"
       
       - name: Health Check
         env:
@@ -151,16 +97,11 @@ jobs:
           fi
       
       - name: Cleanup Old Docker Images
-        env:
-          WSL_HOST: ${{ secrets.WSL_HOST }}
-          WSL_USER: ${{ secrets.WSL_USER }}
-          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
-            echo "🧹 Cleaning up old Docker images..."
-            docker image prune -f
-            echo "✅ Cleanup completed"
-          ENDSSH
+          cd ~/apps/cartridge
+          echo "🧹 Cleaning up old Docker images..."
+          docker image prune -f
+          echo "✅ Cleanup completed"
       
       - name: Send Deployment Notification
         if: always()
