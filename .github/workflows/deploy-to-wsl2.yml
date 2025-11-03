@@ -80,14 +80,25 @@ jobs:
           END
           \$\$;
           "
-          docker compose exec -T postgres psql -U "${POSTGRES_USER}" -c "$SQL_COMMAND"
+          docker compose exec -T postgres psql -U postgres -d postgres -c "$SQL_COMMAND"
+
+          echo "Ensuring database exists..."
+          docker compose exec -T postgres psql -U postgres -d postgres -c "
+          SELECT 'CREATE DATABASE ${POSTGRES_DB}'
+          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}')\gexec
+          "
+          
+          echo "Granting privileges to user..."
+          docker compose exec -T postgres psql -U postgres -d postgres -c "
+          GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USER};
+          "
 
           echo "Verifying role connectivity..."
           if docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
             echo "Role password OK"
           else
             echo "Role verification failed; dumping roles"
-            docker compose exec -T postgres psql -U "${POSTGRES_USER}" -c "\du" || true
+            docker compose exec -T postgres psql -U postgres -d postgres -c "\du" || true
             exit 1
           fi
 
