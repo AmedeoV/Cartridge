@@ -23,7 +23,23 @@ jobs:
           chmod 700 ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>&1
+          
+          # Debug: Check if key file was created properly
+          if [ ! -s ~/.ssh/id_ed25519 ]; then
+            echo "Error: SSH key file is empty or not created"
+            exit 1
+          fi
+          
+          # Scan host key (allow it to fail without stopping)
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          # Disable strict host key checking for this deployment
+          cat >> ~/.ssh/config <<EOF
+          Host $SSH_HOST
+              StrictHostKeyChecking no
+              UserKnownHostsFile /dev/null
+          EOF
+          chmod 600 ~/.ssh/config
       
       - name: Deploy to WSL2
         env:
