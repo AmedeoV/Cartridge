@@ -80,14 +80,14 @@ jobs:
           END
           \$\$;
           "
-          docker compose exec -T postgres psql -U postgres -c "$SQL_COMMAND"
+          docker compose exec -T postgres psql -U "${POSTGRES_USER}" -c "$SQL_COMMAND"
 
           echo "Verifying role connectivity..."
           if docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
             echo "Role password OK"
           else
             echo "Role verification failed; dumping roles"
-            docker compose exec -T postgres psql -U postgres -c "\du" || true
+            docker compose exec -T postgres psql -U "${POSTGRES_USER}" -c "\du" || true
             exit 1
           fi
 
