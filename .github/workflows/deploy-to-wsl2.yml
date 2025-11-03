@@ -36,7 +36,7 @@ jobs:
           
           echo "🔧 Creating .env file from GitHub secrets..."
           # Create .env file directly with environment variables
-          cat > .env <<EOF
+          cat > .env << 'ENVEOF'
 STEAM_API_KEY=${STEAM_API_KEY}
 RAWG_API_KEY=${RAWG_API_KEY}
 POSTGRES_USER=${POSTGRES_USER}
@@ -45,7 +45,11 @@ POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_PORT=${POSTGRES_PORT}
 ASPNETCORE_ENVIRONMENT=Production
 APP_PORT=${APP_PORT}
-EOF
+ENVEOF
+          
+          # Use envsubst to replace variables (safer than unquoted heredoc)
+          export STEAM_API_KEY RAWG_API_KEY POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_PORT APP_PORT
+          envsubst < .env > .env.tmp && mv .env.tmp .env
           
           echo "🔍 Checking if database needs to be recreated..."
           # Check if postgres container exists and if password has changed
