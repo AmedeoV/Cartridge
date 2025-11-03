@@ -1,0 +1,146 @@
+name: Deploy to WSL2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.WSL_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.WSL_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to WSL2
+        env:
+          WSL_HOST: ${{ secrets.WSL_HOST }}
+          WSL_USER: ${{ secrets.WSL_USER }}
+          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
+        run: |
+          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+            set -e
+            
+            # Navigate to deployment directory
+            cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
+            
+            echo "📦 Pulling latest changes..."
+            git pull origin main
+            
+            echo "🔧 Creating .env file from GitHub secrets..."
+            # Note: Secrets are set via separate SSH command for security
+            
+            echo "🛑 Stopping existing containers..."
+            docker compose down
+            
+            echo "🏗️ Building and starting containers..."
+            docker compose up -d --build
+            
+            echo "⏳ Waiting for services to start..."
+            sleep 10
+            
+            echo "✅ Checking container status..."
+            docker compose ps
+            
+            echo "📊 Deployment completed successfully!"
+          ENDSSH
+      
+      - name: Update Environment Variables
+        env:
+          WSL_HOST: ${{ secrets.WSL_HOST }}
+          WSL_USER: ${{ secrets.WSL_USER }}
+          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          APP_PORT: ${{ secrets.APP_PORT }}
+        run: |
+          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+            cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
+            
+            # Create .env file with secrets from GitHub
+            cat > .env << 'ENVFILE'
+# =============================================================================
+# API KEYS
+# =============================================================================
+STEAM_API_KEY=${STEAM_API_KEY}
+RAWG_API_KEY=${RAWG_API_KEY}
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+POSTGRES_USER=${POSTGRES_USER:-postgres}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+POSTGRES_DB=${POSTGRES_DB:-cartridge_db}
+POSTGRES_PORT=${POSTGRES_PORT:-5433}
+
+# =============================================================================
+# APPLICATION CONFIGURATION
+# =============================================================================
+ASPNETCORE_ENVIRONMENT=Production
+APP_PORT=${APP_PORT:-8081}
+ENVFILE
+            
+            echo "✅ Environment variables updated"
+            
+            # Restart containers to pick up new environment variables
+            docker compose up -d
+          ENDSSH
+      
+      - name: Health Check
+        env:
+          HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
+        run: |
+          echo "🔍 Running health check..."
+          sleep 15
+          
+          if [ -n "$HEALTH_CHECK_URL" ]; then
+            # Try up to 5 times with 10 second delays
+            for i in {1..5}; do
+              if curl -f -s -o /dev/null "$HEALTH_CHECK_URL"; then
+                echo "✅ Health check passed! Application is responding."
+                exit 0
+              else
+                echo "⏳ Attempt $i/5 failed, waiting 10 seconds..."
+                sleep 10
+              fi
+            done
+            echo "❌ Health check failed after 5 attempts"
+            exit 1
+          else
+            echo "⚠️ HEALTH_CHECK_URL not set, skipping health check"
+            echo "   Set this secret to enable health checks (e.g., https://cartridge.step0fail.com)"
+          fi
+      
+      - name: Cleanup Old Docker Images
+        env:
+          WSL_HOST: ${{ secrets.WSL_HOST }}
+          WSL_USER: ${{ secrets.WSL_USER }}
+          WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
+        run: |
+          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -f
+            echo "✅ Cleanup completed"
+          ENDSSH
+      
+      - name: Send Deployment Notification
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "🎉 Deployment succeeded!"
+          else
+            echo "❌ Deployment failed!"
+          fi
