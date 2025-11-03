@@ -57,14 +57,14 @@ jobs:
           APP_PORT=${APP_PORT}
           EOF
           
-          echo "🛑 Stopping existing containers..."
-          docker compose down
+          echo "� Performing rolling update (zero-downtime)..."
+          docker compose build web
           
-          echo "🏗️ Building and starting containers..."
-          docker compose up -d --build
+          echo "🚀 Starting new web container..."
+          docker compose up -d --no-deps --build --wait web
           
-          echo "⏳ Waiting for services to start..."
-          sleep 15
+          echo "⏳ Waiting for health check..."
+          sleep 10
           
           echo "✅ Checking container status..."
           docker compose ps
