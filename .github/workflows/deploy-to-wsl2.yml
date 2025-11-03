@@ -24,52 +24,46 @@ jobs:
           POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
           APP_PORT: ${{ secrets.APP_PORT }}
         run: |
-          set -e
-          
-          echo "🚀 Starting deployment to WSL2..."
-          
-          # Navigate to WSL2 deployment directory
+          set -euo pipefail
+
+          echo "Starting deployment to WSL2..."
+
           cd ~/apps/cartridge
-          
-          echo "📦 Pulling latest changes..."
+          echo "Pulling latest changes..."
           git pull origin main
-          
-          echo "🔧 Creating .env file from GitHub secrets..."
-          echo "STEAM_API_KEY=${STEAM_API_KEY}" > .env
-          echo "RAWG_API_KEY=${RAWG_API_KEY}" >> .env
-          echo "POSTGRES_USER=${POSTGRES_USER}" >> .env
-          echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
-          echo "POSTGRES_DB=${POSTGRES_DB}" >> .env
-          echo "POSTGRES_PORT=${POSTGRES_PORT}" >> .env
-          echo "ASPNETCORE_ENVIRONMENT=Production" >> .env
-          echo "APP_PORT=${APP_PORT}" >> .env
-          
-          echo "�️ Ensuring PostgreSQL service is up..."
-          # Always start / ensure postgres running first (won't recreate volume unless removed)
+
+          echo "Writing .env file..."
+          {
+            echo "STEAM_API_KEY=${STEAM_API_KEY}"
+            echo "RAWG_API_KEY=${RAWG_API_KEY}"
+            echo "POSTGRES_USER=${POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=${POSTGRES_DB}"
+            echo "POSTGRES_PORT=${POSTGRES_PORT}"
+            echo "ASPNETCORE_ENVIRONMENT=Production"
+            echo "APP_PORT=${APP_PORT}"
+          } > .env
+
+          echo "Ensuring postgres service is up..."
           docker compose up -d postgres
 
-          echo "⏳ Waiting for Postgres health..."
-          # Wait for healthcheck (compose v2 has 'wait', fallback to sleep if unavailable)
+          echo "Waiting for postgres readiness..."
           if docker compose wait postgres 2>/dev/null; then
-            echo "✅ Postgres healthy"
+            echo "Postgres healthy"
           else
-            # Fallback simple loop
             for i in {1..10}; do
-              if docker compose ps --format json | grep -q '"Service":"postgres"'; then
-                if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1 || docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
-                  echo "✅ Postgres accepting connections"
-                  break
-                fi
+              if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER}" >/dev/null 2>&1 || \
+                 docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+                echo "Postgres accepting connections"
+                break
               fi
-              echo "⏳ Waiting for Postgres (${i}/10)..."
+              echo "Retry $i/10..."
               sleep 3
             done
           fi
 
-          echo "� Synchronizing database role & password..."
-          # Use postgres superuser fallback to manage role. If custom user doesn't exist, create it.
-          # This block is idempotent: will create or update role each deploy.
-          docker compose exec -T postgres psql -U postgres <<'SQL'
+          echo "Synchronizing database role & password..."
+          docker compose exec -T postgres psql -U postgres <<SQL
 DO $$
 DECLARE
   target_role TEXT := '${POSTGRES_USER}';
@@ -82,31 +76,32 @@ BEGIN
     RAISE NOTICE 'Altering password for role %', target_role;
     EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', target_role, new_password);
   END IF;
-END$$;
+END
+$$;
 SQL
 
-          echo "🧪 Verifying role connectivity with updated password..."
-          if docker compose exec -T postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "SELECT 1" >/dev/null 2>&1; then
-            echo "✅ Role password verification succeeded"
+          echo "Verifying role connectivity..."
+          if docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
+            echo "Role password OK"
           else
-            echo "❌ Failed to verify role password (this should not happen). Dumping roles:"
+            echo "Role verification failed; dumping roles"
             docker compose exec -T postgres psql -U postgres -c "\du" || true
             exit 1
           fi
 
-          echo "� Rebuilding and updating web service..."
+          echo "Rebuilding web service..."
           docker compose up -d --build web
 
-          echo "🧹 Removing dangling images..."
+          echo "Pruning dangling images..."
           docker image prune -f || true
-          
-          echo "⏳ Waiting for health check..."
+
+          echo "Waiting before status check..."
           sleep 10
-          
-          echo "✅ Checking container status..."
+
+          echo "Container status:"
           docker compose ps
-          
-          echo "📊 Deployment completed successfully!"
+
+          echo "Deployment completed"
       
       - name: Health Check
         env:
