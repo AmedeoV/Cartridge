@@ -107,7 +107,18 @@
                     📁 1. Upload ProductDetails.sqlite
                 </label>
                 <InputFile OnChange="HandleProductDetailsUpload" accept=".sqlite,.db" 
+                    disabled="@isUploadingProductDetails"
                     style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (isUploadingProductDetails)
+                {
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                            ⏳ Uploading ProductDetails.sqlite... Please wait
+                        </p>
+                    </div>
+                }
                 
                 @if (!string.IsNullOrEmpty(productDetailsFileName))
                 {
@@ -123,7 +134,18 @@
                     📁 2. Upload GameProductInfo.sqlite
                 </label>
                 <InputFile OnChange="HandleProductInfoUpload" accept=".sqlite,.db" 
+                    disabled="@isUploadingProductInfo"
                     style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (isUploadingProductInfo)
+                {
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                            ⏳ Uploading GameProductInfo.sqlite... Please wait
+                        </p>
+                    </div>
+                }
                 
                 @if (!string.IsNullOrEmpty(productInfoFileName))
                 {
@@ -196,6 +218,8 @@
 @code {
     private bool isConnected = false;
     private bool isConnecting = false;
+    private bool isUploadingProductDetails = false;
+    private bool isUploadingProductInfo = false;
     private string? errorMessage = null;
     private string? successMessage = null;
     private string? currentUserId = null;
@@ -258,6 +282,8 @@
         successMessage = null;
         productDetailsFileName = null;
         productDetailsContent = null;
+        isUploadingProductDetails = true;
+        StateHasChanged();
         
         try
         {
@@ -297,6 +323,11 @@
             productDetailsContent = null;
             StateHasChanged();
         }
+        finally
+        {
+            isUploadingProductDetails = false;
+            StateHasChanged();
+        }
     }
 
     private async Task HandleProductInfoUpload(InputFileChangeEventArgs e)
@@ -305,6 +336,8 @@
         successMessage = null;
         productInfoFileName = null;
         productInfoContent = null;
+        isUploadingProductInfo = true;
+        StateHasChanged();
         
         try
         {
@@ -342,6 +375,11 @@
             Console.WriteLine($"Error: {ex}");
             productInfoFileName = null;
             productInfoContent = null;
+            StateHasChanged();
+        }
+        finally
+        {
+            isUploadingProductInfo = false;
             StateHasChanged();
         }
     }
@@ -476,3 +514,11 @@
         return $"{len:0.##} {sizes[order]}";
     }
 }
+
+<style>
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+

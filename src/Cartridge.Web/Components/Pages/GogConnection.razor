@@ -106,7 +106,18 @@
                 </div>
                 
                 <InputFile OnChange="HandleDatabaseFileUpload" accept=".db" 
+                    disabled="@isUploading"
                     style="display: block; padding: 10px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-primary); color: var(--retro-text); font-size: 14px; border-radius: 4px; width: 100%; margin-bottom: 10px; cursor: pointer;"/>
+                
+                @if (isUploading)
+                {
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                            ⏳ Uploading file... Please wait
+                        </p>
+                    </div>
+                }
                 
                 @if (!string.IsNullOrEmpty(uploadedFileName))
                 {
@@ -222,6 +233,7 @@
 @code {
     private bool isConnected = false;
     private bool isConnecting = false;
+    private bool isUploading = false;
     private string? errorMessage;
     private string? successMessage;
     private string? uploadedFileName;
@@ -294,6 +306,8 @@
         uploadedFileName = null;
         uploadedFileSize = null;
         uploadedDatabaseContent = null;
+        isUploading = true;
+        StateHasChanged();
 
         try
         {
@@ -330,6 +344,11 @@
             Console.WriteLine($"Error: {ex}");
             uploadedFileName = null;
             uploadedDatabaseContent = null;
+            StateHasChanged();
+        }
+        finally
+        {
+            isUploading = false;
             StateHasChanged();
         }
     }
@@ -447,4 +466,12 @@
         Navigation.NavigateTo("/library");
     }
 }
+
+<style>
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
 
