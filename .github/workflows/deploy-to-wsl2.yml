@@ -35,36 +35,37 @@ jobs:
           git pull origin main
           
           echo "🔧 Creating .env file from GitHub secrets..."
-          cat > .env <<'EOF'
-          # =============================================================================
-          # API KEYS
-          # =============================================================================
-          STEAM_API_KEY=${STEAM_API_KEY}
-          RAWG_API_KEY=${RAWG_API_KEY}
+          # Use printf to properly handle special characters and avoid line breaks
+          cat > .env << 'ENVFILE'
+# =============================================================================
+# API KEYS
+# =============================================================================
+STEAM_API_KEY=PLACEHOLDER_STEAM_API_KEY
+RAWG_API_KEY=PLACEHOLDER_RAWG_API_KEY
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+POSTGRES_USER=PLACEHOLDER_POSTGRES_USER
+POSTGRES_PASSWORD=PLACEHOLDER_POSTGRES_PASSWORD
+POSTGRES_DB=PLACEHOLDER_POSTGRES_DB
+POSTGRES_PORT=PLACEHOLDER_POSTGRES_PORT
+
+# =============================================================================
+# APPLICATION CONFIGURATION
+# =============================================================================
+ASPNETCORE_ENVIRONMENT=Production
+APP_PORT=PLACEHOLDER_APP_PORT
+ENVFILE
           
-          # =============================================================================
-          # DATABASE CONFIGURATION
-          # =============================================================================
-          POSTGRES_USER=${POSTGRES_USER}
-          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-          POSTGRES_DB=${POSTGRES_DB}
-          POSTGRES_PORT=${POSTGRES_PORT}
-          
-          # =============================================================================
-          # APPLICATION CONFIGURATION
-          # =============================================================================
-          ASPNETCORE_ENVIRONMENT=Production
-          APP_PORT=${APP_PORT}
-          EOF
-          
-          # Replace placeholders with actual values
-          sed -i "s|\${STEAM_API_KEY}|${STEAM_API_KEY}|g" .env
-          sed -i "s|\${RAWG_API_KEY}|${RAWG_API_KEY}|g" .env
-          sed -i "s|\${POSTGRES_USER}|${POSTGRES_USER}|g" .env
-          sed -i "s|\${POSTGRES_PASSWORD}|${POSTGRES_PASSWORD}|g" .env
-          sed -i "s|\${POSTGRES_DB}|${POSTGRES_DB}|g" .env
-          sed -i "s|\${POSTGRES_PORT}|${POSTGRES_PORT}|g" .env
-          sed -i "s|\${APP_PORT}|${APP_PORT}|g" .env
+          # Replace placeholders with actual values using perl for better handling
+          perl -i -pe "s|PLACEHOLDER_STEAM_API_KEY|$ENV{STEAM_API_KEY}|g" .env
+          perl -i -pe "s|PLACEHOLDER_RAWG_API_KEY|$ENV{RAWG_API_KEY}|g" .env
+          perl -i -pe "s|PLACEHOLDER_POSTGRES_USER|$ENV{POSTGRES_USER}|g" .env
+          perl -i -pe "s|PLACEHOLDER_POSTGRES_PASSWORD|$ENV{POSTGRES_PASSWORD}|g" .env
+          perl -i -pe "s|PLACEHOLDER_POSTGRES_DB|$ENV{POSTGRES_DB}|g" .env
+          perl -i -pe "s|PLACEHOLDER_POSTGRES_PORT|$ENV{POSTGRES_PORT}|g" .env
+          perl -i -pe "s|PLACEHOLDER_APP_PORT|$ENV{APP_PORT}|g" .env
           
           echo "🔍 Checking if database needs to be recreated..."
           # Check if postgres container exists and if password has changed
