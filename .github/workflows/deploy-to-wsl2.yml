@@ -68,10 +68,7 @@ jobs:
           docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d postgres -c "ALTER ROLE \"${POSTGRES_USER}\" WITH PASSWORD '${POSTGRES_PASSWORD}';"
 
           echo "Ensuring database exists..."
-          docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d postgres -c "
-          SELECT 'CREATE DATABASE ${POSTGRES_DB}'
-          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}')\gexec
-          "
+          docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d postgres -c "CREATE DATABASE \"${POSTGRES_DB}\"" 2>/dev/null || echo "Database already exists"
 
           echo "Verifying role connectivity..."
           if docker compose exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null 2>&1; then
