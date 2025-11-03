@@ -41,13 +41,21 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
       
+      - name: Test SSH Connection
+        env:
+          WSL_HOST: ${{ secrets.WSL_HOST }}
+          WSL_USER: ${{ secrets.WSL_USER }}
+        run: |
+          echo "Testing SSH connection to ${WSL_USER}@${WSL_HOST}..."
+          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} "echo 'SSH connection successful!' && whoami && pwd"
+      
       - name: Deploy to WSL2
         env:
           WSL_HOST: ${{ secrets.WSL_HOST }}
           WSL_USER: ${{ secrets.WSL_USER }}
           WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
         run: |
-          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
             set -e
             
             # Navigate to deployment directory
@@ -87,7 +95,7 @@ jobs:
           POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
           APP_PORT: ${{ secrets.APP_PORT }}
         run: |
-          ssh ${WSL_USER}@${WSL_HOST} "cd ${WSL_DEPLOY_PATH:-~/apps/cartridge} && cat > .env" <<EOF
+          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} "cd ${WSL_DEPLOY_PATH:-~/apps/cartridge} && cat > .env" <<EOF
           # =============================================================================
           # API KEYS
           # =============================================================================
@@ -109,7 +117,7 @@ jobs:
           APP_PORT=${APP_PORT:-8081}
           EOF
           
-          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
             cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
             echo "✅ Environment variables updated"
             
@@ -148,7 +156,7 @@ jobs:
           WSL_USER: ${{ secrets.WSL_USER }}
           WSL_DEPLOY_PATH: ${{ secrets.WSL_DEPLOY_PATH }}
         run: |
-          ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o ConnectTimeout=10 -o StrictHostKeyChecking=no ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
             echo "🧹 Cleaning up old Docker images..."
             docker image prune -f
             echo "✅ Cleanup completed"
