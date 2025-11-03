@@ -67,32 +67,30 @@ jobs:
           POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
           APP_PORT: ${{ secrets.APP_PORT }}
         run: |
+          ssh ${WSL_USER}@${WSL_HOST} "cd ${WSL_DEPLOY_PATH:-~/apps/cartridge} && cat > .env" <<EOF
+          # =============================================================================
+          # API KEYS
+          # =============================================================================
+          STEAM_API_KEY=${STEAM_API_KEY}
+          RAWG_API_KEY=${RAWG_API_KEY}
+          
+          # =============================================================================
+          # DATABASE CONFIGURATION
+          # =============================================================================
+          POSTGRES_USER=${POSTGRES_USER:-postgres}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+          POSTGRES_DB=${POSTGRES_DB:-cartridge_db}
+          POSTGRES_PORT=${POSTGRES_PORT:-5433}
+          
+          # =============================================================================
+          # APPLICATION CONFIGURATION
+          # =============================================================================
+          ASPNETCORE_ENVIRONMENT=Production
+          APP_PORT=${APP_PORT:-8081}
+          EOF
+          
           ssh ${WSL_USER}@${WSL_HOST} << 'ENDSSH'
             cd ${WSL_DEPLOY_PATH:-~/apps/cartridge}
-            
-            # Create .env file with secrets from GitHub
-            cat > .env << 'ENVFILE'
-# =============================================================================
-# API KEYS
-# =============================================================================
-STEAM_API_KEY=${STEAM_API_KEY}
-RAWG_API_KEY=${RAWG_API_KEY}
-
-# =============================================================================
-# DATABASE CONFIGURATION
-# =============================================================================
-POSTGRES_USER=${POSTGRES_USER:-postgres}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-POSTGRES_DB=${POSTGRES_DB:-cartridge_db}
-POSTGRES_PORT=${POSTGRES_PORT:-5433}
-
-# =============================================================================
-# APPLICATION CONFIGURATION
-# =============================================================================
-ASPNETCORE_ENVIRONMENT=Production
-APP_PORT=${APP_PORT:-8081}
-ENVFILE
-            
             echo "✅ Environment variables updated"
             
             # Restart containers to pick up new environment variables
