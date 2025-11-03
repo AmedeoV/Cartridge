@@ -44,33 +44,61 @@ jobs:
           echo "ASPNETCORE_ENVIRONMENT=Production" >> .env
           echo "APP_PORT=${APP_PORT}" >> .env
           
-          echo "🔍 Checking if database needs to be recreated..."
-          # Check if postgres container exists and if password has changed
-          if docker compose ps postgres | grep -q "Up"; then
-            echo "📊 Database container is running, checking password..."
-            if docker compose exec -T postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "SELECT 1" > /dev/null 2>&1; then
-              echo "✅ Database credentials are valid"
-              DB_NEEDS_RESTART=false
-            else
-              echo "⚠️  Database password has changed, full restart required"
-              DB_NEEDS_RESTART=true
-            fi
+          echo "�️ Ensuring PostgreSQL service is up..."
+          # Always start / ensure postgres running first (won't recreate volume unless removed)
+          docker compose up -d postgres
+
+          echo "⏳ Waiting for Postgres health..."
+          # Wait for healthcheck (compose v2 has 'wait', fallback to sleep if unavailable)
+          if docker compose wait postgres 2>/dev/null; then
+            echo "✅ Postgres healthy"
           else
-            echo "📊 Database container not running"
-            DB_NEEDS_RESTART=true
+            # Fallback simple loop
+            for i in {1..10}; do
+              if docker compose ps --format json | grep -q '"Service":"postgres"'; then
+                if docker compose exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1 || docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+                  echo "✅ Postgres accepting connections"
+                  break
+                fi
+              fi
+              echo "⏳ Waiting for Postgres (${i}/10)..."
+              sleep 3
+            done
           fi
-          
-          if [ "$DB_NEEDS_RESTART" = true ]; then
-            echo "🛑 Performing full restart (database credentials changed)..."
-            docker compose down
-            docker compose up -d --build
+
+          echo "� Synchronizing database role & password..."
+          # Use postgres superuser fallback to manage role. If custom user doesn't exist, create it.
+          # This block is idempotent: will create or update role each deploy.
+          docker compose exec -T postgres psql -U postgres <<'SQL'
+DO $$
+DECLARE
+  target_role TEXT := '${POSTGRES_USER}';
+  new_password TEXT := '${POSTGRES_PASSWORD}';
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target_role) THEN
+    RAISE NOTICE 'Creating role %', target_role;
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', target_role, new_password);
+  ELSE
+    RAISE NOTICE 'Altering password for role %', target_role;
+    EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', target_role, new_password);
+  END IF;
+END$$;
+SQL
+
+          echo "🧪 Verifying role connectivity with updated password..."
+          if docker compose exec -T postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "SELECT 1" >/dev/null 2>&1; then
+            echo "✅ Role password verification succeeded"
           else
-            echo "🔄 Performing rolling update (zero-downtime)..."
-            docker compose build web
-            
-            echo "🚀 Starting new web container..."
-            docker compose up -d --no-deps --build --wait web
+            echo "❌ Failed to verify role password (this should not happen). Dumping roles:"
+            docker compose exec -T postgres psql -U postgres -c "\du" || true
+            exit 1
           fi
+
+          echo "� Rebuilding and updating web service..."
+          docker compose up -d --build web
+
+          echo "🧹 Removing dangling images..."
+          docker image prune -f || true
           
           echo "⏳ Waiting for health check..."
           sleep 10
