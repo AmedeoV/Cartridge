@@ -63,9 +63,9 @@
         </div>
 
         <div class="demo-games-grid">
-            @foreach (var game in demoGames.Take(8))
+            @foreach (var game in demoGames)
             {
-                <div class="demo-game-card-real">
+                <div class="demo-game-card-real @(game.IsActive ? "active" : "")">
                     @if (!string.IsNullOrEmpty(game.CoverUrl))
                     {
                         <div class="demo-game-image-container">
@@ -163,6 +163,8 @@
     private int animatedPlatforms;
     private int animatedHours;
     private Timer? animationTimer;
+    private Timer? carouselTimer;
+    private int currentGameIndex;
     
     private class DemoGame
     {
@@ -185,14 +187,15 @@
                 Icon = "🎮", 
                 Title = "CYBERPUNK 2077", 
                 Platform = "STEAM",
-                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co2rd4.jpg"
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co2rox.jpg",
+                IsActive = true
             },
             new DemoGame 
             { 
                 Icon = "⚔️", 
                 Title = "THE WITCHER 3", 
                 Platform = "GOG",
-                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1wyy.jpg"
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co5ume.jpg"
             },
             new DemoGame 
             { 
@@ -239,16 +242,16 @@
             new DemoGame 
             { 
                 Icon = "🎮", 
-                Title = "DISCO ELYSIUM", 
+                Title = "CELESTE", 
                 Platform = "STEAM",
-                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7r.jpg"
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1rfu.jpg"
             },
             new DemoGame 
             { 
                 Icon = "⚔️", 
                 Title = "SEKIRO", 
                 Platform = "STEAM",
-                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7r.jpg"
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1thb.jpg"
             },
             new DemoGame 
             { 
@@ -262,7 +265,35 @@
                 Icon = "🎯", 
                 Title = "STRAY", 
                 Platform = "STEAM",
-                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co4i9z.jpg"
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co4jns.jpg"
+            },
+            new DemoGame 
+            { 
+                Icon = "🎮", 
+                Title = "PORTAL 2", 
+                Platform = "STEAM",
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co1rs5.jpg"
+            },
+            new DemoGame 
+            { 
+                Icon = "🌟", 
+                Title = "MINECRAFT", 
+                Platform = "STEAM",
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co49x4.jpg"
+            },
+            new DemoGame 
+            { 
+                Icon = "🎮", 
+                Title = "GOD OF WAR", 
+                Platform = "STEAM",
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co5s5z.jpg"
+            },
+            new DemoGame 
+            { 
+                Icon = "🔫", 
+                Title = "RESIDENT EVIL 4", 
+                Platform = "STEAM",
+                CoverUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/co6tph.jpg"
             }
         };
 
@@ -281,6 +312,18 @@
                 StateHasChanged();
             });
         }, null, TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(50));
+
+        // Start game carousel animation
+        carouselTimer = new Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                demoGames[currentGameIndex].IsActive = false;
+                currentGameIndex = (currentGameIndex + 1) % demoGames.Count;
+                demoGames[currentGameIndex].IsActive = true;
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(1.5));
     }
 
     private void NavigateToSignUp()
@@ -296,6 +339,7 @@
     public void Dispose()
     {
         animationTimer?.Dispose();
+        carouselTimer?.Dispose();
     }
 }
 
