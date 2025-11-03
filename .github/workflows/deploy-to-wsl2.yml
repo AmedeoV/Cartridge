@@ -35,14 +35,12 @@ jobs:
           git pull origin main
           
           echo "🔧 Creating .env file from GitHub secrets..."
-          # Use printf to properly handle special characters and avoid line breaks
           cat > .env << 'ENVFILE'
 # =============================================================================
 # API KEYS
 # =============================================================================
 STEAM_API_KEY=PLACEHOLDER_STEAM_API_KEY
 RAWG_API_KEY=PLACEHOLDER_RAWG_API_KEY
-
 # =============================================================================
 # DATABASE CONFIGURATION
 # =============================================================================
@@ -50,7 +48,6 @@ POSTGRES_USER=PLACEHOLDER_POSTGRES_USER
 POSTGRES_PASSWORD=PLACEHOLDER_POSTGRES_PASSWORD
 POSTGRES_DB=PLACEHOLDER_POSTGRES_DB
 POSTGRES_PORT=PLACEHOLDER_POSTGRES_PORT
-
 # =============================================================================
 # APPLICATION CONFIGURATION
 # =============================================================================
