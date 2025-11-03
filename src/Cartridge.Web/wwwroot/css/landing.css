@@ -245,6 +245,93 @@
     letter-spacing: 2px;
 }
 
+/* Demo Games Grid - Real Game Cards */
+.demo-games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+    padding: 0 20px;
+}
+
+.demo-game-card-real {
+    background: var(--retro-bg);
+    border: 4px solid var(--retro-border);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 
+        inset 2px 2px 0 rgba(255, 255, 255, 0.1),
+        4px 4px 0 rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+
+.demo-game-card-real:hover {
+    transform: translate(-2px, -2px);
+    border-color: var(--retro-highlight);
+    box-shadow: 
+        inset 2px 2px 0 rgba(255, 255, 255, 0.2),
+        6px 6px 0 rgba(0, 0, 0, 0.4),
+        0 0 20px var(--retro-highlight);
+}
+
+.demo-game-image-container {
+    width: 100%;
+    height: 280px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0a1628 0%, #152840 100%);
+    border-bottom: 4px solid var(--retro-border);
+}
+
+.demo-game-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.demo-game-placeholder {
+    width: 100%;
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    background: linear-gradient(135deg, #0a1628 0%, #152840 100%);
+    border-bottom: 4px solid var(--retro-border);
+}
+
+.demo-game-info {
+    padding: 15px;
+    background: var(--retro-bg);
+}
+
+.demo-game-title-real {
+    font-size: 12px;
+    color: var(--retro-text);
+    margin: 0 0 10px 0;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.demo-platform-badge {
+    font-size: 9px;
+    color: var(--retro-accent);
+    background: var(--retro-bg-lighter);
+    padding: 4px 8px;
+    border: 2px solid var(--retro-border);
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 /* Demo Games Carousel */
 .demo-games-carousel {
     display: flex;
@@ -430,6 +517,20 @@
     
     .demo-game-card {
         width: 140px;
+    }
+    
+    .demo-games-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .demo-game-image-container,
+    .demo-game-placeholder {
+        height: 220px;
+    }
+    
+    .demo-game-title-real {
+        font-size: 10px;
     }
 }
 
