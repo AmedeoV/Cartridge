@@ -1,5 +1,5 @@
 ﻿@page "/"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout LandingLayout
 @inject NavigationManager Navigation
 
