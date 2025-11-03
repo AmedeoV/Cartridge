@@ -35,34 +35,17 @@ jobs:
           git pull origin main
           
           echo "🔧 Creating .env file from GitHub secrets..."
-          cat > .env << 'ENVFILE'
-# =============================================================================
-# API KEYS
-# =============================================================================
-STEAM_API_KEY=PLACEHOLDER_STEAM_API_KEY
-RAWG_API_KEY=PLACEHOLDER_RAWG_API_KEY
-# =============================================================================
-# DATABASE CONFIGURATION
-# =============================================================================
-POSTGRES_USER=PLACEHOLDER_POSTGRES_USER
-POSTGRES_PASSWORD=PLACEHOLDER_POSTGRES_PASSWORD
-POSTGRES_DB=PLACEHOLDER_POSTGRES_DB
-POSTGRES_PORT=PLACEHOLDER_POSTGRES_PORT
-# =============================================================================
-# APPLICATION CONFIGURATION
-# =============================================================================
+          # Create .env file directly with environment variables
+          cat > .env <<EOF
+STEAM_API_KEY=${STEAM_API_KEY}
+RAWG_API_KEY=${RAWG_API_KEY}
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+POSTGRES_PORT=${POSTGRES_PORT}
 ASPNETCORE_ENVIRONMENT=Production
-APP_PORT=PLACEHOLDER_APP_PORT
-ENVFILE
-          
-          # Replace placeholders with actual values using perl for better handling
-          perl -i -pe "s|PLACEHOLDER_STEAM_API_KEY|$ENV{STEAM_API_KEY}|g" .env
-          perl -i -pe "s|PLACEHOLDER_RAWG_API_KEY|$ENV{RAWG_API_KEY}|g" .env
-          perl -i -pe "s|PLACEHOLDER_POSTGRES_USER|$ENV{POSTGRES_USER}|g" .env
-          perl -i -pe "s|PLACEHOLDER_POSTGRES_PASSWORD|$ENV{POSTGRES_PASSWORD}|g" .env
-          perl -i -pe "s|PLACEHOLDER_POSTGRES_DB|$ENV{POSTGRES_DB}|g" .env
-          perl -i -pe "s|PLACEHOLDER_POSTGRES_PORT|$ENV{POSTGRES_PORT}|g" .env
-          perl -i -pe "s|PLACEHOLDER_APP_PORT|$ENV{APP_PORT}|g" .env
+APP_PORT=${APP_PORT}
+EOF
           
           echo "🔍 Checking if database needs to be recreated..."
           # Check if postgres container exists and if password has changed
