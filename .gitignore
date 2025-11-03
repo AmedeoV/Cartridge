@@ -87,6 +87,14 @@ _ReSharper*/
 .env.local
 .env.*.local
 
+# Admin/test files with credentials
+register.json
+*_admin.sql
+check_admin.sql
+create_admin.sql
+delete_admin.sql
+make_admin.sql
+
 # Database files that may contain user data
 *.db
 *.sqlite

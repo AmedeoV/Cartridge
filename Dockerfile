@@ -27,9 +27,9 @@ RUN dotnet publish "Cartridge.Web.csproj" -c Release -o /app/publish /p:UseAppHo
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
-# Install SQLite for GOG database reading (if needed)
+# Install SQLite for GOG database reading and curl for health checks
 RUN apt-get update && \
-    apt-get install -y sqlite3 libsqlite3-dev && \
+    apt-get install -y sqlite3 libsqlite3-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy published application

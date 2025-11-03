@@ -9,6 +9,7 @@ using Cartridge.Infrastructure.GameSearch;
 using Cartridge.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,15 +24,25 @@ builder.Services.AddCascadingAuthenticationState();
 // Add HttpContextAccessor for accessing HttpContext in components
 builder.Services.AddHttpContextAccessor();
 
+// Configure Data Protection to persist keys
+var dataProtectionPath = builder.Configuration["DataProtection:KeyPath"] ?? "/app/keys";
+if (!Directory.Exists(dataProtectionPath))
+{
+    Directory.CreateDirectory(dataProtectionPath);
+}
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("Cartridge");
+
 // Add antiforgery services for form protection
 builder.Services.AddAntiforgery();
 
 // Configure PostgreSQL Database
-builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Also add regular DbContext for Identity and other services that need it
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Add DbContextFactory for Blazor Server components
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Configure Identity

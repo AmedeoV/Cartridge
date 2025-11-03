@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - ARM64 compatible
   postgres:
     image: postgres:16-alpine
     container_name: cartridge-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cartridge_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThisSecurePassword123!}
+      POSTGRES_DB: ${POSTGRES_DB:-cartridge_db}
     ports:
       - "5433:5432"
     volumes:
@@ -16,28 +16,31 @@ services:
     networks:
       - cartridge-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  # ASP.NET Core Web Application
+  # ASP.NET Core Web Application - ARM64 compatible
   web:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: cartridge-web
     ports:
-      - "8081:8080"
+      - "${APP_PORT:-8081}:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=cartridge_db;Username=postgres;Password=postgres
-      - SteamApi__ApiKey=${STEAM_API_KEY:-YOUR_STEAM_API_KEY_HERE}
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=${POSTGRES_DB:-cartridge_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-ChangeThisSecurePassword123!}
+      - SteamApi__ApiKey=${STEAM_API_KEY:-}
       - SteamApi__BaseUrl=https://api.steampowered.com
       - SteamApi__StoreBaseUrl=https://store.steampowered.com/api
-      - RawgApi__ApiKey=${RAWG_API_KEY:-YOUR_RAWG_API_KEY_HERE}
+      - RawgApi__ApiKey=${RAWG_API_KEY:-}
       - RawgApi__BaseUrl=https://api.rawg.io/api
+      - DataProtection__KeyPath=/app/keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,12 +48,15 @@ services:
       - cartridge-network
     volumes:
       - app-data:/app/data
+      - dataprotection-keys:/app/keys
     restart: unless-stopped
 
 volumes:
   postgres-data:
     driver: local
   app-data:
+    driver: local
+  dataprotection-keys:
     driver: local
 
 networks:
