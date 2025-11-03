@@ -35,7 +35,7 @@ jobs:
           git pull origin main
           
           echo "🔧 Creating .env file from GitHub secrets..."
-          cat > .env <<EOF
+          cat > .env <<'EOF'
           # =============================================================================
           # API KEYS
           # =============================================================================
@@ -57,11 +57,42 @@ jobs:
           APP_PORT=${APP_PORT}
           EOF
           
-          echo "� Performing rolling update (zero-downtime)..."
-          docker compose build web
+          # Replace placeholders with actual values
+          sed -i "s|\${STEAM_API_KEY}|${STEAM_API_KEY}|g" .env
+          sed -i "s|\${RAWG_API_KEY}|${RAWG_API_KEY}|g" .env
+          sed -i "s|\${POSTGRES_USER}|${POSTGRES_USER}|g" .env
+          sed -i "s|\${POSTGRES_PASSWORD}|${POSTGRES_PASSWORD}|g" .env
+          sed -i "s|\${POSTGRES_DB}|${POSTGRES_DB}|g" .env
+          sed -i "s|\${POSTGRES_PORT}|${POSTGRES_PORT}|g" .env
+          sed -i "s|\${APP_PORT}|${APP_PORT}|g" .env
           
-          echo "🚀 Starting new web container..."
-          docker compose up -d --no-deps --build --wait web
+          echo "🔍 Checking if database needs to be recreated..."
+          # Check if postgres container exists and if password has changed
+          if docker compose ps postgres | grep -q "Up"; then
+            echo "📊 Database container is running, checking password..."
+            if docker compose exec -T postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "SELECT 1" > /dev/null 2>&1; then
+              echo "✅ Database credentials are valid"
+              DB_NEEDS_RESTART=false
+            else
+              echo "⚠️  Database password has changed, full restart required"
+              DB_NEEDS_RESTART=true
+            fi
+          else
+            echo "📊 Database container not running"
+            DB_NEEDS_RESTART=true
+          fi
+          
+          if [ "$DB_NEEDS_RESTART" = true ]; then
+            echo "🛑 Performing full restart (database credentials changed)..."
+            docker compose down
+            docker compose up -d --build
+          else
+            echo "🔄 Performing rolling update (zero-downtime)..."
+            docker compose build web
+            
+            echo "🚀 Starting new web container..."
+            docker compose up -d --no-deps --build --wait web
+          fi
           
           echo "⏳ Waiting for health check..."
           sleep 10
