@@ -112,11 +112,17 @@
                 
                 @if (isUploadingProductDetails)
                 {
-                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
-                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
-                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
-                            ⏳ Uploading ProductDetails.sqlite... Please wait
-                        </p>
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                            <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                                ⏳ Uploading ProductDetails.sqlite... @productDetailsProgress%
+                            </p>
+                        </div>
+                        <div style="width: 100%; height: 20px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-accent); border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; background: linear-gradient(90deg, var(--retro-accent), var(--retro-primary)); transition: width 0.3s ease; width: @(productDetailsProgress)%;">
+                            </div>
+                        </div>
                     </div>
                 }
                 
@@ -139,11 +145,17 @@
                 
                 @if (isUploadingProductInfo)
                 {
-                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
-                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
-                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
-                            ⏳ Uploading GameProductInfo.sqlite... Please wait
-                        </p>
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                            <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                                ⏳ Uploading GameProductInfo.sqlite... @productInfoProgress%
+                            </p>
+                        </div>
+                        <div style="width: 100%; height: 20px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-accent); border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; background: linear-gradient(90deg, var(--retro-accent), var(--retro-primary)); transition: width 0.3s ease; width: @(productInfoProgress)%;">
+                            </div>
+                        </div>
                     </div>
                 }
                 
@@ -220,6 +232,8 @@
     private bool isConnecting = false;
     private bool isUploadingProductDetails = false;
     private bool isUploadingProductInfo = false;
+    private int productDetailsProgress = 0;
+    private int productInfoProgress = 0;
     private string? errorMessage = null;
     private string? successMessage = null;
     private string? currentUserId = null;
@@ -283,6 +297,7 @@
         productDetailsFileName = null;
         productDetailsContent = null;
         isUploadingProductDetails = true;
+        productDetailsProgress = 0;
         StateHasChanged();
         
         try
@@ -305,11 +320,25 @@
                 return;
             }
 
-            // Read the file content
+            // Read the file content with progress tracking
             using var memoryStream = new MemoryStream();
-            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
-            productDetailsContent = memoryStream.ToArray();
+            using var fileStream = file.OpenReadStream(maxFileSize);
             
+            var buffer = new byte[81920]; // 80KB buffer
+            long totalBytesRead = 0;
+            int bytesRead;
+            
+            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+                
+                // Update progress
+                productDetailsProgress = (int)((totalBytesRead * 100) / file.Size);
+                StateHasChanged();
+            }
+            
+            productDetailsContent = memoryStream.ToArray();
             productDetailsFileName = file.Name;
             productDetailsFileSize = FormatFileSize(file.Size);
             
@@ -326,6 +355,7 @@
         finally
         {
             isUploadingProductDetails = false;
+            productDetailsProgress = 0;
             StateHasChanged();
         }
     }
@@ -337,6 +367,7 @@
         productInfoFileName = null;
         productInfoContent = null;
         isUploadingProductInfo = true;
+        productInfoProgress = 0;
         StateHasChanged();
         
         try
@@ -359,11 +390,25 @@
                 return;
             }
 
-            // Read the file content
+            // Read the file content with progress tracking
             using var memoryStream = new MemoryStream();
-            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
-            productInfoContent = memoryStream.ToArray();
+            using var fileStream = file.OpenReadStream(maxFileSize);
             
+            var buffer = new byte[81920]; // 80KB buffer
+            long totalBytesRead = 0;
+            int bytesRead;
+            
+            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+                
+                // Update progress
+                productInfoProgress = (int)((totalBytesRead * 100) / file.Size);
+                StateHasChanged();
+            }
+            
+            productInfoContent = memoryStream.ToArray();
             productInfoFileName = file.Name;
             productInfoFileSize = FormatFileSize(file.Size);
             
@@ -380,6 +425,7 @@
         finally
         {
             isUploadingProductInfo = false;
+            productInfoProgress = 0;
             StateHasChanged();
         }
     }

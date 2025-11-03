@@ -111,11 +111,17 @@
                 
                 @if (isUploading)
                 {
-                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
-                        <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
-                        <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
-                            ⏳ Uploading file... Please wait
-                        </p>
+                    <div style="background: rgba(255, 235, 59, 0.1); border: 2px solid var(--retro-accent); padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div style="border: 3px solid var(--retro-accent); border-top-color: transparent; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></div>
+                            <p style="color: var(--retro-accent); margin: 0; font-size: 14px;">
+                                ⏳ Uploading file... @uploadProgress%
+                            </p>
+                        </div>
+                        <div style="width: 100%; height: 20px; background: var(--retro-bg-secondary); border: 2px solid var(--retro-accent); border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; background: linear-gradient(90deg, var(--retro-accent), var(--retro-primary)); transition: width 0.3s ease; width: @(uploadProgress)%;">
+                            </div>
+                        </div>
                     </div>
                 }
                 
@@ -234,6 +240,7 @@
     private bool isConnected = false;
     private bool isConnecting = false;
     private bool isUploading = false;
+    private int uploadProgress = 0;
     private string? errorMessage;
     private string? successMessage;
     private string? uploadedFileName;
@@ -307,6 +314,7 @@
         uploadedFileSize = null;
         uploadedDatabaseContent = null;
         isUploading = true;
+        uploadProgress = 0;
         StateHasChanged();
 
         try
@@ -328,11 +336,25 @@
                 return;
             }
 
-            // Read the file content
+            // Read the file content with progress tracking
             using var memoryStream = new MemoryStream();
-            await file.OpenReadStream(maxFileSize).CopyToAsync(memoryStream);
-            uploadedDatabaseContent = memoryStream.ToArray();
+            using var fileStream = file.OpenReadStream(maxFileSize);
             
+            var buffer = new byte[81920]; // 80KB buffer
+            long totalBytesRead = 0;
+            int bytesRead;
+            
+            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+                
+                // Update progress
+                uploadProgress = (int)((totalBytesRead * 100) / file.Size);
+                StateHasChanged();
+            }
+            
+            uploadedDatabaseContent = memoryStream.ToArray();
             uploadedFileName = file.Name;
             uploadedFileSize = FormatFileSize(file.Size);
             
@@ -349,6 +371,7 @@
         finally
         {
             isUploading = false;
+            uploadProgress = 0;
             StateHasChanged();
         }
     }
