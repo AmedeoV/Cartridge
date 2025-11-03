@@ -48,19 +48,19 @@ jobs:
           docker compose up -d postgres
 
           echo "Waiting for postgres readiness..."
-          if docker compose wait postgres 2>/dev/null; then
-            echo "Postgres healthy"
-          else
-            for i in {1..10}; do
-              if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER}" >/dev/null 2>&1 || \
-                 docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
-                echo "Postgres accepting connections"
-                break
-              fi
-              echo "Retry $i/10..."
-              sleep 3
-            done
-          fi
+          for i in {1..15}; do
+            if docker compose exec -T postgres pg_isready -U postgres -q; then
+              echo "Postgres is ready for connections."
+              break
+            fi
+            echo "Waiting for postgres to be ready... (${i}/15)"
+            sleep 2
+            if [ "$i" -eq 15 ]; then
+              echo "Postgres did not become ready in time."
+              docker compose logs postgres
+              exit 1
+            fi
+          done
 
           echo "Synchronizing database role & password..."
           
