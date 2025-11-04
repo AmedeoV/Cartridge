@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Cartridge.Mobile.MainPage"
+             BackgroundColor="#0a0a0a">
+
+    <Grid>
+        <WebView x:Name="CartridgeWebView"
+                 Source="https://cartridge.step0fail.com"
+                 BackgroundColor="#0a0a0a" />
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator x:Name="LoadingIndicator"
+                          IsRunning="True"
+                          IsVisible="True"
+                          Color="#00ff41"
+                          VerticalOptions="Center"
+                          HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>
+
