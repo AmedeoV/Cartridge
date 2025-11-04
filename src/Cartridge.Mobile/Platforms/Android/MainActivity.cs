@@ -16,6 +16,19 @@ public class MainActivity : MauiAppCompatActivity
 		try
 		{
 			System.Diagnostics.Debug.WriteLine("=== MainActivity.OnCreate START ===");
+			System.Diagnostics.Debug.WriteLine($"Build Configuration: {(System.Diagnostics.Debugger.IsAttached ? "DEBUG" : "RELEASE")}");
+			System.Diagnostics.Debug.WriteLine($"Package Name: {ApplicationContext?.PackageName}");
+			
+			if (Build.VERSION.SdkInt >= BuildVersionCodes.N)
+			{
+#pragma warning disable CA1416
+				System.Diagnostics.Debug.WriteLine($"Data Directory: {ApplicationContext?.DataDir?.AbsolutePath}");
+#pragma warning restore CA1416
+			}
+			else
+			{
+				System.Diagnostics.Debug.WriteLine($"Files Directory: {ApplicationContext?.FilesDir?.AbsolutePath}");
+			}
 			
 			// CRITICAL: Set WebView data directory BEFORE any WebView is created
 			// This ensures cookies are stored in the app's private directory and persist

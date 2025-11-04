@@ -32,6 +32,28 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+	<!-- Release build configuration for Android -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework.Contains(`android`))' == 'true'">
+		<!-- Don't enable code shrinker which can cause issues with reflection -->
+		<AndroidEnableProguard>false</AndroidEnableProguard>
+		<AndroidLinkMode>None</AndroidLinkMode>
+		
+		<!-- Disable AOT compilation to prevent assembly GUID mismatches -->
+		<UseInterpreter>true</UseInterpreter>
+		<RunAOTCompilation>false</RunAOTCompilation>
+		
+		<!-- Ensure WebView data persists -->
+		<AndroidCreatePackagePerAbi>false</AndroidCreatePackagePerAbi>
+		
+		<!-- Use R8 for optimization but preserve WebView classes -->
+		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
+		<AndroidEnableMultiDex>true</AndroidEnableMultiDex>
+		
+		<!-- Debugging for release builds to see cookie logs -->
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon - Commented out for Android to use custom ic_launcher icons -->
 		<!-- For Android, we use the custom ic_launcher icons in Platforms/Android/Resources/mipmap-* -->
