@@ -1,14 +1,14 @@
 @page "/privacy"
+@layout RetroLayout
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
 
 <PageTitle>Privacy Policy - Cartridge</PageTitle>
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <h1 class="mb-4">Privacy Policy</h1>
-            <p class="text-muted mb-5"><strong>Last Updated:</strong> November 4, 2025</p>
+<div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+    <div style="background: rgba(0, 0, 0, 0.3); border: 2px solid var(--retro-primary); padding: 30px; border-radius: 8px;">
+        <h1 style="color: var(--retro-primary); text-align: center; font-size: 32px; margin-bottom: 10px; text-transform: uppercase;">◄► Privacy Policy ◄►</h1>
+        <p style="text-align: center; color: #888; margin-bottom: 30px;"><strong>Last Updated:</strong> November 4, 2025</p>
 
             <div class="privacy-content">
                 <section class="mb-5">
@@ -196,42 +196,75 @@
                     </p>
                 </section>
 
-                <hr class="my-5" />
+                <hr style="border-color: var(--retro-primary); margin: 40px 0;" />
 
             </div>
         </div>
     </div>
-</div>
 
 <style>
     .privacy-content h2 {
-        color: #00ff41;
+        color: var(--retro-primary);
         margin-top: 2rem;
         margin-bottom: 1rem;
-        font-size: 1.75rem;
+        font-size: 24px;
+        text-transform: uppercase;
+        border-bottom: 2px solid var(--retro-primary);
+        padding-bottom: 8px;
     }
 
     .privacy-content h3 {
-        color: #00cc34;
+        color: var(--retro-secondary);
         margin-top: 1.5rem;
         margin-bottom: 0.75rem;
-        font-size: 1.25rem;
+        font-size: 18px;
+        text-transform: uppercase;
+    }
+
+    .privacy-content p {
+        color: #ccc;
+        line-height: 1.8;
+        margin-bottom: 1rem;
     }
 
     .privacy-content ul {
         margin-bottom: 1rem;
+        color: #ccc;
+    }
+
+    .privacy-content li {
+        margin-bottom: 0.5rem;
     }
 
     .privacy-content a {
-        color: #00ff41;
+        color: var(--retro-primary);
         text-decoration: none;
+        transition: color 0.2s;
     }
 
     .privacy-content a:hover {
+        color: var(--retro-secondary);
         text-decoration: underline;
     }
 
     .privacy-content section {
         line-height: 1.7;
+        margin-bottom: 2rem;
+    }
+
+    .privacy-content .alert {
+        background: rgba(0, 255, 65, 0.1);
+        border: 2px solid var(--retro-primary);
+        border-radius: 4px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .privacy-content .alert strong {
+        color: var(--retro-primary);
+    }
+
+    .privacy-content strong {
+        color: var(--retro-secondary);
     }
 </style>
