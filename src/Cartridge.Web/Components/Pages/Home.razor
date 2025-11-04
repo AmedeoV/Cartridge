@@ -2,6 +2,8 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout LandingLayout
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
 
 <PageTitle>CARTRIDGE - Your Gaming Universe</PageTitle>
 
@@ -177,8 +179,16 @@
     
     private List<DemoGame> demoGames = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        // Check if user is already authenticated, if so redirect to library
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User?.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/library", forceLoad: true);
+            return;
+        }
+
         // Initialize demo games with real cover art
         demoGames = new List<DemoGame>
         {
