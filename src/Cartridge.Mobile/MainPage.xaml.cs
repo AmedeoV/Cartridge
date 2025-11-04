@@ -178,5 +178,38 @@ public partial class MainPage : ContentPage
 		// Restart timer when page appears
 		StartCookieFlushTimer();
 		System.Diagnostics.Debug.WriteLine("Page appearing, cookie flush timer started");
+		
+		// Check cookie status on page appearing
+#if ANDROID
+		try
+		{
+			var cookieManager = Android.Webkit.CookieManager.Instance;
+			if (cookieManager != null)
+			{
+				var url = "https://cartridge.step0fail.com";
+				var cookies = cookieManager.GetCookie(url);
+				
+				if (!string.IsNullOrEmpty(cookies))
+				{
+					var cookieCount = cookies.Split(';').Length;
+					System.Diagnostics.Debug.WriteLine($"✓ Page appearing with {cookieCount} cookie(s)");
+					
+					// Check for auth cookies
+					if (cookies.Contains(".Cartridge.Auth") || cookies.Contains("AspNet"))
+					{
+						System.Diagnostics.Debug.WriteLine("✓ Authentication cookie present on page load");
+					}
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("No cookies present when page appears");
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Debug.WriteLine($"!!! Error checking cookies in OnAppearing: {ex.Message}");
+		}
+#endif
 	}
 }

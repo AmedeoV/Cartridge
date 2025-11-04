@@ -2,6 +2,7 @@
 using Android.Content;
 using Android.Runtime;
 using Android.Webkit;
+using Cartridge.Mobile.Platforms.Android;
 
 namespace Cartridge.Mobile;
 
@@ -22,12 +23,19 @@ public class MainApplication : MauiApplication
 		// Enable persistent cookies at application level
 		try
 		{
+			System.Diagnostics.Debug.WriteLine("=== MainApplication.OnCreate START ===");
+			
 			var cookieManager = CookieManager.Instance;
 			if (cookieManager != null)
 			{
 				cookieManager.SetAcceptCookie(true);
 				System.Diagnostics.Debug.WriteLine("=== MainApplication: Cookies enabled ===");
+				
+				// Log cookies at app startup
+				CookieDebugHelper.LogAllCookies("MainApplication.OnCreate");
 			}
+			
+			System.Diagnostics.Debug.WriteLine("=== MainApplication.OnCreate END ===");
 		}
 		catch (Exception ex)
 		{

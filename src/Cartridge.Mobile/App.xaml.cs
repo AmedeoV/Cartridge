@@ -56,7 +56,26 @@ public class App : Application
 			{
 				var url = "https://cartridge.step0fail.com";
 				var cookies = cookieManager.GetCookie(url);
-				System.Diagnostics.Debug.WriteLine($"Cookies on resume: {(!string.IsNullOrEmpty(cookies) ? cookies.Split(';').Length.ToString() + " cookies" : "No cookies")}");
+				
+				if (!string.IsNullOrEmpty(cookies))
+				{
+					var cookieCount = cookies.Split(';').Length;
+					System.Diagnostics.Debug.WriteLine($"✓ Cookies on resume: {cookieCount} cookie(s)");
+					
+					// Check for auth cookies
+					if (cookies.Contains(".Cartridge.Auth") || cookies.Contains("AspNet"))
+					{
+						System.Diagnostics.Debug.WriteLine("✓ Authentication cookie present - user should remain logged in");
+					}
+					else
+					{
+						System.Diagnostics.Debug.WriteLine("! Auth cookie not found - user may need to log in");
+					}
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("! No cookies found on resume - user needs to log in");
+				}
 			}
 		}
 		catch (Exception ex)

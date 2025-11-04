@@ -22,20 +22,19 @@ public class CartridgeWebViewClient : WebViewClient
 	{
 		base.OnPageFinished(view, url);
 
-		// Ensure cookies are flushed after each page load
-		try
+		System.Diagnostics.Debug.WriteLine($">>> WebViewClient.OnPageFinished: {url}");
+		
+		// Log and flush cookies after each page load
+		CookieDebugHelper.LogAllCookies($"OnPageFinished: {url}");
+		
+		// Backup cookies after page load (especially after login)
+		var context = view?.Context;
+		if (context != null)
 		{
-			var cookieManager = global::Android.Webkit.CookieManager.Instance;
-			if (cookieManager != null && global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.Lollipop)
-			{
-				cookieManager.Flush();
-				System.Diagnostics.Debug.WriteLine($"✓ WebViewClient: Cookies flushed after loading {url}");
-			}
+			PersistentCookieStore.BackupCookies(context);
 		}
-		catch (Exception ex)
-		{
-			System.Diagnostics.Debug.WriteLine($"!!! WebViewClient: Error flushing cookies: {ex.Message}");
-		}
+		
+		CookieDebugHelper.ForceCookieFlush("OnPageFinished");
 	}
 
 	public override WebResourceResponse? ShouldInterceptRequest(global::Android.Webkit.WebView? view, IWebResourceRequest? request)

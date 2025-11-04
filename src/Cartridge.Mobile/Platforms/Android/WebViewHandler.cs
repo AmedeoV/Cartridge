@@ -53,25 +53,35 @@ public class CustomWebViewHandler : WebViewHandler
 				System.Diagnostics.Debug.WriteLine("✓ WebView configured: DOM Storage, Database, Cache enabled");
 			}
 
-			// Enable cookies with persistence
+			// Enable cookies with persistence - CRITICAL for persistent login
 			var cookieManager = CookieManager.Instance;
 			if (cookieManager != null)
 			{
+				// Enable cookie acceptance
 				cookieManager.SetAcceptCookie(true);
+				
+				// Allow third-party cookies (may be needed for some auth flows)
 				cookieManager.SetAcceptThirdPartyCookies(platformView, true);
 
 				System.Diagnostics.Debug.WriteLine($"✓ WebView cookies enabled - Accept: {cookieManager.AcceptCookie()}");
 
-				// Check for existing cookies
+				// Check for existing cookies on WebView creation
 				var url = "https://cartridge.step0fail.com";
 				var cookies = cookieManager.GetCookie(url);
 				if (!string.IsNullOrEmpty(cookies))
 				{
-					System.Diagnostics.Debug.WriteLine($"✓ Found existing cookies: {cookies.Split(';').Length} cookies");
+					var cookieCount = cookies.Split(';').Length;
+					System.Diagnostics.Debug.WriteLine($"✓ Found existing cookies in WebView: {cookieCount} cookie(s)");
+					
+					// Check specifically for auth cookies
+					if (cookies.Contains(".Cartridge.Auth") || cookies.Contains("AspNet"))
+					{
+						System.Diagnostics.Debug.WriteLine("✓ Authentication cookie present in WebView - user should be logged in");
+					}
 				}
 				else
 				{
-					System.Diagnostics.Debug.WriteLine("No existing cookies found (fresh start or logged out)");
+					System.Diagnostics.Debug.WriteLine("No existing cookies found in WebView (user needs to log in)");
 				}
 			}
 			else
