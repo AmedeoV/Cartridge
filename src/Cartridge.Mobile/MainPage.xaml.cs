@@ -111,11 +111,30 @@ public partial class MainPage : ContentPage
 				var cookies = cookieManager.GetCookie(url);
 
 				System.Diagnostics.Debug.WriteLine($"=== [{DateTime.Now:HH:mm:ss}] Cookie Flush ===");
+				System.Diagnostics.Debug.WriteLine($"URL: {url}");
 				System.Diagnostics.Debug.WriteLine($"Has cookies: {!string.IsNullOrEmpty(cookies)}");
+
 				if (!string.IsNullOrEmpty(cookies))
 				{
-					System.Diagnostics.Debug.WriteLine($"Cookie count: {cookies.Split(';').Length}");
-					System.Diagnostics.Debug.WriteLine($"Cookies: {cookies.Substring(0, Math.Min(100, cookies.Length))}...");
+					var cookieList = cookies.Split(';');
+					System.Diagnostics.Debug.WriteLine($"Cookie count: {cookieList.Length}");
+
+					// Log each cookie name (not values for security)
+					foreach (var cookie in cookieList)
+					{
+						var cookieName = cookie.Trim().Split('=')[0];
+						System.Diagnostics.Debug.WriteLine($"  - Cookie: {cookieName}");
+
+						// Check specifically for auth cookies
+						if (cookieName.Contains("Auth") || cookieName.Contains("AspNet") || cookieName.Contains("Cartridge"))
+						{
+							System.Diagnostics.Debug.WriteLine($"    ✓ AUTH COOKIE FOUND: {cookieName}");
+						}
+					}
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("!!! NO COOKIES FOUND - User may not be authenticated or cookies not set");
 				}
 
 				if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Lollipop)

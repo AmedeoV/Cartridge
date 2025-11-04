@@ -15,19 +15,37 @@ public class MainActivity : MauiAppCompatActivity
 		try
 		{
 			// Configure WebView data directory to ensure persistence
-			var dataDir = System.IO.Path.Combine(ApplicationContext.DataDir.AbsolutePath, "webview_data");
-			if (!System.IO.Directory.Exists(dataDir))
+			// Use safe API that works on all Android versions
+			var context = ApplicationContext;
+			if (context != null)
 			{
-				System.IO.Directory.CreateDirectory(dataDir);
+				string dataDir;
+				if (Build.VERSION.SdkInt >= BuildVersionCodes.N)
+				{
+#pragma warning disable CA1416 // Validate platform compatibility - we check SDK version above
+					dataDir = System.IO.Path.Combine(context.DataDir?.AbsolutePath ?? context.FilesDir?.AbsolutePath ?? "", "webview_data");
+#pragma warning restore CA1416
+				}
+				else
+				{
+					// For older Android versions, use FilesDir which is always available
+					dataDir = System.IO.Path.Combine(context.FilesDir?.AbsolutePath ?? "", "webview_data");
+				}
+
+				if (!string.IsNullOrEmpty(dataDir) && !System.IO.Directory.Exists(dataDir))
+				{
+					System.IO.Directory.CreateDirectory(dataDir);
+				}
+				System.Diagnostics.Debug.WriteLine($"WebView data directory: {dataDir}");
 			}
-			System.Diagnostics.Debug.WriteLine($"WebView data directory: {dataDir}");
 
 			// Enable WebView cookie persistence
 			var cookieManager = CookieManager.Instance;
 			if (cookieManager != null)
 			{
 				cookieManager.SetAcceptCookie(true);
-				cookieManager.RemoveSessionCookies(null); // Don't remove session cookies
+				// Don't call RemoveSessionCookies - we want to keep all cookies
+				// cookieManager.RemoveSessionCookies(null);
 
 				System.Diagnostics.Debug.WriteLine("=== WebView cookies enabled and will persist ===");
 				System.Diagnostics.Debug.WriteLine($"Accept cookies: {cookieManager.AcceptCookie()}");

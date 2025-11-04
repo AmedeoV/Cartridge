@@ -14,6 +14,9 @@ public class CustomWebViewHandler : WebViewHandler
 		{
 			System.Diagnostics.Debug.WriteLine("=== CustomWebViewHandler.ConnectHandler called ===");
 
+			// Set custom WebViewClient for better cookie management
+			platformView.SetWebViewClient(new CartridgeWebViewClient());
+
 			// Configure WebView settings for cookie persistence
 			if (platformView.Settings != null)
 			{
@@ -27,6 +30,20 @@ public class CustomWebViewHandler : WebViewHandler
 				// Enable storage APIs
 				platformView.Settings.SetGeolocationEnabled(false);
 
+				// Set a proper User-Agent to ensure server treats this as a persistent browser
+				var defaultUserAgent = platformView.Settings.UserAgentString ?? "";
+				if (!defaultUserAgent.Contains("Cartridge"))
+				{
+					platformView.Settings.UserAgentString = $"{defaultUserAgent} CartridgeMobile/1.0";
+				}
+
+				// Enable app cache (deprecated but still works on older Android versions)
+#pragma warning disable CS0618 // Type or member is obsolete
+#pragma warning disable CA1422 // Obsolete on Android 30+
+				platformView.Settings.SetAppCacheEnabled(true);
+#pragma warning restore CA1422
+#pragma warning restore CS0618
+
 				// Allow mixed content (HTTP in HTTPS pages)
 				if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.Lollipop)
 				{
@@ -36,7 +53,7 @@ public class CustomWebViewHandler : WebViewHandler
 				System.Diagnostics.Debug.WriteLine("✓ WebView configured: DOM Storage, Database, Cache enabled");
 			}
 
-			// Enable cookies
+			// Enable cookies with persistence
 			var cookieManager = CookieManager.Instance;
 			if (cookieManager != null)
 			{
@@ -44,6 +61,18 @@ public class CustomWebViewHandler : WebViewHandler
 				cookieManager.SetAcceptThirdPartyCookies(platformView, true);
 
 				System.Diagnostics.Debug.WriteLine($"✓ WebView cookies enabled - Accept: {cookieManager.AcceptCookie()}");
+
+				// Check for existing cookies
+				var url = "https://cartridge.step0fail.com";
+				var cookies = cookieManager.GetCookie(url);
+				if (!string.IsNullOrEmpty(cookies))
+				{
+					System.Diagnostics.Debug.WriteLine($"✓ Found existing cookies: {cookies.Split(';').Length} cookies");
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine("No existing cookies found (fresh start or logged out)");
+				}
 			}
 			else
 			{
@@ -54,6 +83,26 @@ public class CustomWebViewHandler : WebViewHandler
 		{
 			System.Diagnostics.Debug.WriteLine($"!!! Error configuring WebView: {ex.Message}\n{ex.StackTrace}");
 		}
+	}
+
+	protected override void DisconnectHandler(global::Android.Webkit.WebView platformView)
+	{
+		try
+		{
+			// Flush cookies before disconnecting
+			var cookieManager = CookieManager.Instance;
+			if (cookieManager != null && global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.Lollipop)
+			{
+				cookieManager.Flush();
+				System.Diagnostics.Debug.WriteLine("✓ Cookies flushed before WebView disconnect");
+			}
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Debug.WriteLine($"!!! Error flushing cookies in DisconnectHandler: {ex.Message}");
+		}
+
+		base.DisconnectHandler(platformView);
 	}
 }
 

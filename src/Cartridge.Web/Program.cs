@@ -73,11 +73,11 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
     options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None; // Required for WebView
     options.Cookie.IsEssential = true;
-    options.ExpireTimeSpan = TimeSpan.FromDays(30);
-    options.LoginPath = "/signin";
-    options.LogoutPath = "/signout";
+    options.Cookie.MaxAge = TimeSpan.FromDays(30); // Cookie persists for 30 days
     options.AccessDeniedPath = "/access-denied";
     options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromDays(30); // Session expires after 30 days
+    options.Cookie.Name = ".Cartridge.Auth"; // Custom cookie name for clarity
 });
 
 // Configure Steam API settings

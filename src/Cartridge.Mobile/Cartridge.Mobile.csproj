@@ -12,7 +12,7 @@
 		<Nullable>enable</Nullable>
 
 		<!-- Android Configuration -->
-		<AndroidManifest>Platforms\Android\AndroidManifest.xml</AndroidManifest>
+		<!-- <AndroidManifest>Platforms\Android\AndroidManifest.xml</AndroidManifest> -->
 		<TargetPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">35.0</TargetPlatformVersion>
 		<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">android-arm64;android-x64</RuntimeIdentifiers>
 

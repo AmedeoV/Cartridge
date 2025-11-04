@@ -21,13 +21,6 @@ public static class MauiProgram
 		// Register services
 		builder.Services.AddSingleton<AuthenticationService>();
 
-		// Register main page
-		builder.Services.AddSingleton<MainPage>();
-
-#if DEBUG
-		builder.Logging.AddDebug();
-#endif
-
 		return builder.Build();
 	}
 }
