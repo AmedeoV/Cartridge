@@ -1,12 +1,8 @@
-﻿using System.Text.Json;
-
-namespace Cartridge.Mobile;
+﻿namespace Cartridge.Mobile;
 
 public partial class MainPage : ContentPage
 {
-	private const string AuthTokenKey = "auth_token";
-	private const string RefreshTokenKey = "refresh_token";
-	private const string TokenExpiryKey = "token_expiry";
+	private System.Threading.Timer? _cookieFlushTimer;
 
 	public MainPage()
 	{
@@ -15,6 +11,19 @@ public partial class MainPage : ContentPage
 		// Handle WebView navigation events
 		CartridgeWebView.Navigating += OnWebViewNavigating;
 		CartridgeWebView.Navigated += OnWebViewNavigated;
+
+		// Start periodic cookie flushing every 30 seconds
+		StartCookieFlushTimer();
+	}
+
+	private void StartCookieFlushTimer()
+	{
+		_cookieFlushTimer = new System.Threading.Timer(
+			callback: _ => FlushCookies(),
+			state: null,
+			dueTime: TimeSpan.FromSeconds(30),
+			period: TimeSpan.FromSeconds(30)
+		);
 	}
 
 	private void OnWebViewNavigating(object? sender, WebNavigatingEventArgs e)
@@ -22,6 +31,8 @@ public partial class MainPage : ContentPage
 		// Show loading indicator when navigation starts
 		LoadingIndicator.IsVisible = true;
 		LoadingIndicator.IsRunning = true;
+
+		System.Diagnostics.Debug.WriteLine($">>> WebView navigating to: {e.Url}");
 	}
 
 	private async void OnWebViewNavigated(object? sender, WebNavigatedEventArgs e)
@@ -34,168 +45,119 @@ public partial class MainPage : ContentPage
 		if (e.Result != WebNavigationResult.Success)
 		{
 			await DisplayAlert("Error", $"Failed to load page: {e.Result}", "OK");
+			System.Diagnostics.Debug.WriteLine($"!!! Navigation failed: {e.Result}");
 			return;
 		}
 
-		// Inject JavaScript to capture and restore authentication tokens
-		await InjectAuthenticationScriptAsync();
+		System.Diagnostics.Debug.WriteLine($"<<< WebView navigated successfully to: {e.Url}");
+
+		// Flush cookies after navigation to save authentication state
+		FlushCookies();
+
+		// Check authentication status for debugging
+		await CheckAuthenticationStatusAsync();
 	}
 
-	private async Task InjectAuthenticationScriptAsync()
+	private async Task CheckAuthenticationStatusAsync()
 	{
 		try
 		{
-			// First, try to restore saved tokens
-			var savedToken = await SecureStorage.GetAsync(AuthTokenKey);
-			if (!string.IsNullOrEmpty(savedToken))
-			{
-				var expiryString = await SecureStorage.GetAsync(TokenExpiryKey);
-				if (!string.IsNullOrEmpty(expiryString))
-				{
-					if (DateTime.TryParse(expiryString, out var expiry) && expiry > DateTime.UtcNow)
-					{
-						// Token is still valid, restore it to localStorage
-						var refreshToken = await SecureStorage.GetAsync(RefreshTokenKey);
-						await RestoreTokensToWebViewAsync(savedToken, refreshToken);
-					}
-				}
-			}
-
-			// Inject script to monitor and save authentication changes
-			var monitorScript = @"
+			// Inject script to check if user is authenticated and what cookies exist
+			var checkAuthScript = @"
 				(function() {
-					// Monitor localStorage changes for authentication tokens
-					const originalSetItem = localStorage.setItem;
-					localStorage.setItem = function(key, value) {
-						originalSetItem.apply(this, arguments);
-						if (key === 'token' || key === 'auth_token' || key === 'access_token') {
-							window.chrome.webview.postMessage({
-								type: 'auth_token',
-								token: value,
-								refresh_token: localStorage.getItem('refresh_token'),
-								expiry: localStorage.getItem('token_expiry')
-							});
-						}
-					};
+					try {
+						var info = {
+							authenticated: false,
+							hasCookies: document.cookie.length > 0,
+							cookieCount: document.cookie ? document.cookie.split(';').length : 0,
+							cookiePreview: document.cookie ? document.cookie.substring(0, 50) : 'none'
+						};
 
-					// Also monitor sessionStorage
-					const originalSessionSetItem = sessionStorage.setItem;
-					sessionStorage.setItem = function(key, value) {
-						originalSessionSetItem.apply(this, arguments);
-						if (key === 'token' || key === 'auth_token' || key === 'access_token') {
-							window.chrome.webview.postMessage({
-								type: 'auth_token',
-								token: value,
-								refresh_token: sessionStorage.getItem('refresh_token'),
-								expiry: sessionStorage.getItem('token_expiry')
-							});
-						}
-					};
+						// Check if there's an authentication indicator on the page
+						var userMenuExists = document.querySelector('[data-user-menu]') !== null ||
+						                     document.querySelector('.user-profile') !== null ||
+						                     document.querySelector('[href*=""signout""]') !== null ||
+						                     document.querySelector('[href*=""logout""]') !== null;
+
+						info.authenticated = userMenuExists;
+
+						return JSON.stringify(info);
+					} catch (e) {
+						return JSON.stringify({error: e.message});
+					}
 				})();
 			";
 
-			await CartridgeWebView.EvaluateJavaScriptAsync(monitorScript);
+			var result = await CartridgeWebView.EvaluateJavaScriptAsync(checkAuthScript);
+			System.Diagnostics.Debug.WriteLine($"=== Auth Status Check ===");
+			System.Diagnostics.Debug.WriteLine($"Result: {result}");
 		}
 		catch (Exception ex)
 		{
-			System.Diagnostics.Debug.WriteLine($"Error injecting authentication script: {ex.Message}");
+			System.Diagnostics.Debug.WriteLine($"!!! Error checking authentication status: {ex.Message}");
 		}
 	}
 
-	private async Task RestoreTokensToWebViewAsync(string token, string? refreshToken)
+	private void FlushCookies()
 	{
+#if ANDROID
 		try
 		{
-			var restoreScript = $@"
-				(function() {{
-					localStorage.setItem('token', '{token}');
-					localStorage.setItem('auth_token', '{token}');
-					localStorage.setItem('access_token', '{token}');
-					if ('{refreshToken}' !== '') {{
-						localStorage.setItem('refresh_token', '{refreshToken}');
-					}}
-				}})();
-			";
-
-			await CartridgeWebView.EvaluateJavaScriptAsync(restoreScript);
-			System.Diagnostics.Debug.WriteLine("Authentication tokens restored to WebView");
-		}
-		catch (Exception ex)
-		{
-			System.Diagnostics.Debug.WriteLine($"Error restoring tokens: {ex.Message}");
-		}
-	}
-
-	protected override async void OnAppearing()
-	{
-		base.OnAppearing();
-
-		// Check and restore authentication on page appearing
-		await CheckAndRestoreAuthenticationAsync();
-	}
-
-	private async Task CheckAndRestoreAuthenticationAsync()
-	{
-		try
-		{
-			var savedToken = await SecureStorage.GetAsync(AuthTokenKey);
-			if (!string.IsNullOrEmpty(savedToken))
+			var cookieManager = Android.Webkit.CookieManager.Instance;
+			if (cookieManager != null)
 			{
-				var expiryString = await SecureStorage.GetAsync(TokenExpiryKey);
-				if (!string.IsNullOrEmpty(expiryString))
+				// Get current cookies for the site
+				var url = "https://cartridge.step0fail.com";
+				var cookies = cookieManager.GetCookie(url);
+
+				System.Diagnostics.Debug.WriteLine($"=== [{DateTime.Now:HH:mm:ss}] Cookie Flush ===");
+				System.Diagnostics.Debug.WriteLine($"Has cookies: {!string.IsNullOrEmpty(cookies)}");
+				if (!string.IsNullOrEmpty(cookies))
 				{
-					if (DateTime.TryParse(expiryString, out var expiry) && expiry > DateTime.UtcNow)
-					{
-						System.Diagnostics.Debug.WriteLine("Valid authentication token found");
-						// Token will be restored after navigation completes
-					}
-					else
-					{
-						// Token expired, clear it
-						System.Diagnostics.Debug.WriteLine("Authentication token expired, clearing");
-						ClearAuthentication();
-					}
+					System.Diagnostics.Debug.WriteLine($"Cookie count: {cookies.Split(';').Length}");
+					System.Diagnostics.Debug.WriteLine($"Cookies: {cookies.Substring(0, Math.Min(100, cookies.Length))}...");
 				}
+
+				if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Lollipop)
+				{
+					cookieManager.Flush();
+					System.Diagnostics.Debug.WriteLine($"✓ Cookies flushed to disk");
+				}
+				else
+				{
+					System.Diagnostics.Debug.WriteLine($"! Old Android version, cannot flush");
+				}
+			}
+			else
+			{
+				System.Diagnostics.Debug.WriteLine($"! CookieManager is null");
 			}
 		}
 		catch (Exception ex)
 		{
-			System.Diagnostics.Debug.WriteLine($"Error checking authentication: {ex.Message}");
+			System.Diagnostics.Debug.WriteLine($"!!! Error flushing cookies: {ex.Message}");
 		}
+#endif
 	}
 
-	private void ClearAuthentication()
+	protected override void OnDisappearing()
 	{
-		try
-		{
-			SecureStorage.Remove(AuthTokenKey);
-			SecureStorage.Remove(RefreshTokenKey);
-			SecureStorage.Remove(TokenExpiryKey);
+		base.OnDisappearing();
 
-			// Clear localStorage via JavaScript
-			var clearScript = @"
-				localStorage.removeItem('token');
-				localStorage.removeItem('auth_token');
-				localStorage.removeItem('access_token');
-				localStorage.removeItem('refresh_token');
-				localStorage.removeItem('token_expiry');
-			";
+		// Flush cookies when page disappears
+		FlushCookies();
+		System.Diagnostics.Debug.WriteLine("Page disappearing, cookies flushed");
 
-			MainThread.BeginInvokeOnMainThread(async () =>
-			{
-				try
-				{
-					await CartridgeWebView.EvaluateJavaScriptAsync(clearScript);
-				}
-				catch (Exception ex)
-				{
-					System.Diagnostics.Debug.WriteLine($"Error clearing localStorage: {ex.Message}");
-				}
-			});
-		}
-		catch (Exception ex)
-		{
-			System.Diagnostics.Debug.WriteLine($"Error clearing authentication: {ex.Message}");
-		}
+		// Stop timer
+		_cookieFlushTimer?.Dispose();
+	}
+
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+
+		// Restart timer when page appears
+		StartCookieFlushTimer();
+		System.Diagnostics.Debug.WriteLine("Page appearing, cookie flush timer started");
 	}
 }

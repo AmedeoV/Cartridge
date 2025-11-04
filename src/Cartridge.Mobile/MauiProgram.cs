@@ -10,6 +10,14 @@ public static class MauiProgram
 		var builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
 
+		// Configure custom handlers for cookie persistence
+		builder.ConfigureMauiHandlers(handlers =>
+		{
+#if ANDROID
+			handlers.AddHandler<WebView, Platforms.Android.CustomWebViewHandler>();
+#endif
+		});
+
 		// Register services
 		builder.Services.AddSingleton<AuthenticationService>();
 

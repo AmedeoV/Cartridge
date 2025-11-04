@@ -70,6 +70,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None; // Required for WebView
+    options.Cookie.IsEssential = true;
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.LoginPath = "/signin";
     options.LogoutPath = "/signout";
