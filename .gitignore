@@ -148,6 +148,7 @@ ClientBin/
 *.pfx
 *.publishsettings
 orleans.codegen.cs
+*.keystore
 
 # Backup & report files from converting an old project file
 _UpgradeReport_Files/

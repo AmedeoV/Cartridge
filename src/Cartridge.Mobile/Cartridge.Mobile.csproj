@@ -34,6 +34,13 @@
 
 	<!-- Release build configuration for Android -->
 	<PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework.Contains(`android`))' == 'true'">
+		<!-- Signing Configuration -->
+		<AndroidKeyStore>true</AndroidKeyStore>
+		<AndroidSigningKeyStore>cartridge.keystore</AndroidSigningKeyStore>
+		<AndroidSigningKeyAlias>cartridge</AndroidSigningKeyAlias>
+		<AndroidSigningKeyPass></AndroidSigningKeyPass>
+		<AndroidSigningStorePass></AndroidSigningStorePass>
+		
 		<!-- Don't enable code shrinker which can cause issues with reflection -->
 		<AndroidEnableProguard>false</AndroidEnableProguard>
 		<AndroidLinkMode>None</AndroidLinkMode>
