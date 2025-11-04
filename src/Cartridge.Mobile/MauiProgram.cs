@@ -1,4 +1,5 @@
-﻿﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Cartridge.Mobile.Services;
 
 namespace Cartridge.Mobile;
 
@@ -8,6 +9,9 @@ public static class MauiProgram
 	{
 		var builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
+
+		// Register services
+		builder.Services.AddSingleton<AuthenticationService>();
 
 		// Register main page
 		builder.Services.AddSingleton<MainPage>();
